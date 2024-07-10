@@ -107,3 +107,8 @@ variable "se_boot" {
   type    = string
   default = env("SE_BOOT")
 }
+
+variable "output_directory" {
+  type    = string
+  default = "output"
+}
