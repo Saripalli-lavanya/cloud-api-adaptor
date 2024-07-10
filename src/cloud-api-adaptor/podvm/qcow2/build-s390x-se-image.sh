@@ -16,13 +16,37 @@ for i in /tmp/files/*.crt; do
     host_keys+="-k ${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
-echo "Installing jq"
-export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update > /dev/null 2>&1
-sudo apt-get install jq -y > /dev/null 2>&1
-sudo apt-get remove unattended-upgrades -y
-sudo apt-get autoremove
-sudo apt-get clean
+if [ "${DISTRO}" = "rhel" ]; then
+    export LANG=C.UTF-8
+    if ! command -v jq &> /dev/null || ! command -v cryptsetup &> /dev/null; then
+        if ! command -v jq &> /dev/null; then
+            echo >&2 "jq is required but it's not installed. Installing now..."
+            sudo yum install jq -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install jq. Aborting."
+                exit 1
+            fi
+        fi
+
+        if ! command -v cryptsetup &> /dev/null; then
+            echo >&2 "cryptsetup is required but it's not installed. Installing now..."
+            sudo yum install cryptsetup -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install cryptsetup. Aborting."
+                exit 1
+            fi
+        fi
+    fi
+    echo "jq and cryptsetup are installed. Proceeding with the script..."
+else
+    echo "Installing jq"
+    export DEBIAN_FRONTEND=noninteractive
+    sudo apt-get update > /dev/null 2>&1
+    sudo apt-get install jq -y > /dev/null 2>&1
+    sudo apt-get remove unattended-upgrades -y
+    sudo apt-get autoremove
+    sudo apt-get clean
+fi
 sudo rm -rf /var/lib/apt/lists/*
 
 workdir=$(pwd)
@@ -114,9 +138,14 @@ sudo -E bash -c 'echo s390_trng >> ${dst_mnt}/etc/modules'
 
 echo "Preparing files needed for mkinitrd"
 
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
-sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
-sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+if [ "${DISTRO}" = "rhel" ]; then
+    sudo -E bash -c 'echo "install_items+=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
+else 
+    sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
+fi
+    sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 [defaultboot]
 default=linux
 target=/boot-se
@@ -131,7 +160,11 @@ image = /boot-se/se.img
 END'
 
 echo "Updating initial ram disk"
-sudo chroot "${dst_mnt}" update-initramfs -u || true
+if [ "${DISTRO}" = "rhel" ]; then
+    sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
+else
+    sudo chroot "${dst_mnt}" update-initramfs -u || true
+fi
 echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
 echo "Generating an IBM Secure Execution image"
 
