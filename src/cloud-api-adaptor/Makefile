@@ -211,5 +211,6 @@ podvm-image:
 	--build-arg CLOUD_PROVIDER=$(or $(CLOUD_PROVIDER),generic) \
 	--build-arg IMAGE_URL=$(IMAGE_URL) \
 	--build-arg IMAGE_CHECKSUM=$(IMAGE_CHECKSUM) \
+	--build-arg SE_BOOT=$(SE_BOOT) \
 	$(DOCKER_OPTS) .
 	rm -rf .git
