@@ -118,7 +118,7 @@ build {
     script = "qcow2/build-s390x-se-image-post.sh"
     environment_vars = [
       "SE_BOOT=${var.se_boot}",
-      "ARCH=${${var.os_arch}}",
+      "ARCH=${var.os_arch}",
       "OUTPUT_DIRECTORY=${var.output_directory}",
       "IMAGE_NAME=${var.qemu_image_name}"
     ]
