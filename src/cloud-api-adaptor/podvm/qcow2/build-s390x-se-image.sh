@@ -36,20 +36,6 @@ device=vdb
 lsblk_output=$(sudo lsblk --json)
 
 parsed_output=$(echo "$lsblk_output" | python3 -c 'import sys, json; print(json.dumps(json.load(sys.stdin), indent=4))')
-
-while IFS= read -r line; do
-    name=$(echo "$line" | grep -o '"name": "[^"]*' | cut -d'"' -f4)
-    size=$(echo "$line" | grep -o '"size": "[^"]*' | cut -d'"' -f4)
-    children=$(echo "$line" | grep -q '"children": \[\]' && echo "null" || echo "notnull")
-    mountpoint=$(echo "$line" | grep -q '"mountpoints": \[null\]' && echo "null" || echo "notnull")
-
-    if [ "$size" = "$disksize" ] && [ "$children" = "null" ] && [ "$mountpoint" = "null" ]; then
-        device="$name"
-        break
-    fi
-done <<< "$(echo "$parsed_output" | grep '"name":\|size\|children\|mountpoints')"
-
-# Output the matched device name
 echo "$device"
 echo "Found target device $device"
 # /dev/vda or /dev/vdb
@@ -72,6 +58,9 @@ done
 
 echo "Formatting boot-se partition"
 sudo mke2fs -t ext4 -L boot-se ${tmp_nbd}1
+sudo blkid
+sudo blkid ${tmp_nbd}1 -s PARTUUID -o value
+sudo blkid /dev/vdb1 -s PARTUUID -o value
 boot_uuid=$(sudo blkid ${tmp_nbd}1 -s PARTUUID -o value)
 export boot_uuid
 
