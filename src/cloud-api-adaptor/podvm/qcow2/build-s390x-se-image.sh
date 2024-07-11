@@ -24,14 +24,34 @@ echo "Installing jq"
 subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
 echo "$(uname -a)"
 # sudo yum update -y
-sudo yum clean all
-sudo yum install jq -y
-sudo yum remove unattended-upgrades -y
+# sudo yum clean all
+# sudo yum install jq -y
+# sudo yum remove unattended-upgrades -y
 
 workdir=$(pwd)
 disksize=100G
 sudo lsblk --json
-device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
+# device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
+
+lsblk_output=$(sudo lsblk --json)
+
+parsed_output=$(echo "$lsblk_output" | python3 -c 'import sys, json; print(json.dumps(json.load(sys.stdin), indent=4))')
+
+device=""
+while IFS= read -r line; do
+    name=$(echo "$line" | grep -o '"name": "[^"]*' | cut -d'"' -f4)
+    size=$(echo "$line" | grep -o '"size": "[^"]*' | cut -d'"' -f4)
+    children=$(echo "$line" | grep -q '"children": \[\]' && echo "null" || echo "notnull")
+    mountpoint=$(echo "$line" | grep -q '"mountpoints": \[null\]' && echo "null" || echo "notnull")
+
+    if [ "$size" = "$disksize" ] && [ "$children" = "null" ] && [ "$mountpoint" = "null" ]; then
+        device="$name"
+        break
+    fi
+done <<< "$(echo "$parsed_output" | grep '"name":\|size\|children\|mountpoints')"
+
+# Output the matched device name
+echo "$device"
 echo "Found target device $device"
 # /dev/vda or /dev/vdb
 export tmp_nbd="/dev/$device"
