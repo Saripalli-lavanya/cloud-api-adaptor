@@ -30,7 +30,7 @@ sudo yum remove unattended-upgrades -y
 
 workdir=$(pwd)
 disksize=100G
-sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[]'
+sudo lsblk --json
 device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
 echo "Found target device $device"
 # /dev/vda or /dev/vdb
