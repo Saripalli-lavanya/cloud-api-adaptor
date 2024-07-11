@@ -26,6 +26,7 @@ locals {
       ["-serial", "mon:stdio"]
     ]
   )
+  final_qemuargs = "${var.se_boot}" == "1" ? concat(local.qemuargs, local.se_qemuargs) : local.qemuargs
 }
 
 source "qemu" "rhel" {

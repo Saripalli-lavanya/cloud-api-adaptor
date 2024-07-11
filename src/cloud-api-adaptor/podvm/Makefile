@@ -53,7 +53,7 @@ else ifeq ($(PODVM_DISTRO),rhel)
 	@echo defined
 	$(eval OPTS := -var disk_size=11144)
 ifeq ($(ARCH),s390x)
-	$(eval OPTS := -var se_boot=${SE_BOOT})
+	$(eval OPTS += -var se_boot=${SE_BOOT})
 	$(eval OPTS += -var machine_type=${QEMU_MACHINE_TYPE_${ARCH}})
 	$(eval OPTS += -var cpu_type=max)
 ifndef QEMU_BINARY
