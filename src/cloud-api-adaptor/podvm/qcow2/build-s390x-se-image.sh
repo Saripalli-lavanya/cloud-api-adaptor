@@ -23,7 +23,7 @@ echo "Installing jq"
 # export DEBIAN_FRONTEND=noninteractive
 subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
 echo "$(uname -a)"
-sudo yum update -y
+# sudo yum update -y
 sudo yum install jq -y
 sudo yum remove unattended-upgrades -y
 
