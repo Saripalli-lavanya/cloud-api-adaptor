@@ -53,6 +53,7 @@ else ifeq ($(PODVM_DISTRO),rhel)
 	@echo defined
 	$(eval OPTS := -var disk_size=11144)
 ifeq ($(ARCH),s390x)
+	$(eval OPTS := -var se_boot=${SE_BOOT})
 	$(eval OPTS += -var machine_type=${QEMU_MACHINE_TYPE_${ARCH}})
 	$(eval OPTS += -var cpu_type=max)
 ifndef QEMU_BINARY
@@ -87,7 +88,7 @@ $(IMAGE_FILE): $(BINARIES) $(FILES) setopts
 	if [ "${ARCH}" = "x86_64" ]; then \
 		packer plugins install github.com/hashicorp/qemu v1.1.0; \
 	fi
-	packer build ${PACKER_DEFAULT_OPTS} ${OPTS} qcow2/$(PODVM_DISTRO)
+	PACKER_LOG=1 packer build ${PACKER_DEFAULT_OPTS} ${OPTS} -debug qcow2/$(PODVM_DISTRO)
 	rm -fr toupload
 	rm -f cloud-init.img
 
