@@ -32,12 +32,11 @@ workdir=$(pwd)
 disksize=100G
 sudo lsblk --json
 # device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
-
+device=vdb
 lsblk_output=$(sudo lsblk --json)
 
 parsed_output=$(echo "$lsblk_output" | python3 -c 'import sys, json; print(json.dumps(json.load(sys.stdin), indent=4))')
 
-device=""
 while IFS= read -r line; do
     name=$(echo "$line" | grep -o '"name": "[^"]*' | cut -d'"' -f4)
     size=$(echo "$line" | grep -o '"size": "[^"]*' | cut -d'"' -f4)
