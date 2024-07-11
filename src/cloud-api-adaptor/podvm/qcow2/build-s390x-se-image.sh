@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
 if [ "${SE_BOOT:-0}" != "1" ]; then
     exit 0
 elif [ "${ARCH}" != "s390x" ]; then
@@ -20,11 +23,9 @@ echo "Installing jq"
 # export DEBIAN_FRONTEND=noninteractive
 subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
 echo "$(uname -a)"
-sudo yum update 
-sudo yum install jq -y 
+sudo yum update -y
+sudo yum install jq -y
 sudo yum remove unattended-upgrades -y
-sudo yum autoremove
-sudo yum clean all
 
 workdir=$(pwd)
 disksize=100G
