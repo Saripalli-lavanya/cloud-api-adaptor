@@ -80,7 +80,7 @@ variable "machine_type" {
 
 variable "os_arch" {
   type    = string
-  default = "x86_64"
+  default = "s390x"
 }
 
 variable "is_uefi" {
