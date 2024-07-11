@@ -24,6 +24,7 @@ echo "Installing jq"
 subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
 echo "$(uname -a)"
 # sudo yum update -y
+sudo yum clean all
 sudo yum install jq -y
 sudo yum remove unattended-upgrades -y
 
