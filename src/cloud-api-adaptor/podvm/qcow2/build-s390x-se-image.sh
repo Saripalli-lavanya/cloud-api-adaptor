@@ -18,12 +18,13 @@ done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
 echo "Installing jq"
 # export DEBIAN_FRONTEND=noninteractive
-
-sudo dnf update > /dev/null 2>&1
-sudo dnf install jq -y > /dev/null 2>&1
-sudo dnf remove unattended-upgrades -y
-sudo dnf autoremove
-sudo dnf clean all
+subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
+echo "$(uname -a)"
+sudo yum update 
+sudo yum install jq -y 
+sudo yum remove unattended-upgrades -y
+sudo yum autoremove
+sudo yum clean all
 
 workdir=$(pwd)
 disksize=100G

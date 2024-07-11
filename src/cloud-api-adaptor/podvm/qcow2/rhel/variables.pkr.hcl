@@ -112,3 +112,13 @@ variable "output_directory" {
   type    = string
   default = "output"
 }
+
+variable "ORG_ID" {
+  type    = string
+  default = "ORG_ID"
+}
+
+variable "ACTIVATION_KEY" {
+  type    = string
+  default = "ACTIVATION_KEY"
+}
