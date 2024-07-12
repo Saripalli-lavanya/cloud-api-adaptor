@@ -73,6 +73,7 @@ build {
   }
     provisioner "shell" {
     inline = [
+      "sudo yum clean all"
       "sudo yum install -y cryptsetup jq", 
     ]
   }
