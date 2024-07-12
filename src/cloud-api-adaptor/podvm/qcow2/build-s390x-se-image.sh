@@ -27,7 +27,7 @@ echo "$(uname -a)"
 # sudo yum clean all
 # sudo yum install jq -y
 # sudo yum remove unattended-upgrades -y
-
+sudo yum install cryptsetup -y
 workdir=$(pwd)
 disksize=100G
 sudo lsblk --json
@@ -59,11 +59,11 @@ done
 echo "Formatting boot-se partition"
 sudo mke2fs -t ext4 -L boot-se ${tmp_nbd}1
 sudo blkid
-sudo blkid ${tmp_nbd}1 -s PARTUUID -o value
+echo"$(sudo blkid ${tmp_nbd}1 -s PARTUUID -o value) is our "
 sudo blkid /dev/vdb1 -s PARTUUID -o value
 boot_uuid=$(sudo blkid ${tmp_nbd}1 -s PARTUUID -o value)
 export boot_uuid
-
+echo "$boot_uuid is the boot uu ID"
 echo "Setting up encrypted root partition"
 sudo mkdir ${workdir}/rootkeys
 sudo mount -t tmpfs rootkeys ${workdir}/rootkeys
