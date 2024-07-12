@@ -27,7 +27,7 @@ echo "$(uname -a)"
 # sudo yum clean all
 # sudo yum install jq -y
 # sudo yum remove unattended-upgrades -y
-sudo yum install cryptsetup -y
+# sudo yum install cryptsetup -y
 workdir=$(pwd)
 disksize=100G
 sudo lsblk --json
