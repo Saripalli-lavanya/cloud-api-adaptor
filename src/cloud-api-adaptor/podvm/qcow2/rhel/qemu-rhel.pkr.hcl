@@ -71,13 +71,6 @@ build {
       "rm toupload/files.tar"
     ]
   }
-    provisioner "shell" {
-    inline = [
-      "sudo yum clean all"
-      "sudo yum install -y cryptsetup jq", 
-    ]
-  }
-
   provisioner "file" {
     source      = "qcow2/copy-files.sh"
     destination = "~/copy-files.sh"
