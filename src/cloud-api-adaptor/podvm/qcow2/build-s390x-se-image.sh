@@ -23,6 +23,7 @@ echo "Installing jq"
 # export DEBIAN_FRONTEND=noninteractive
 subscription-manager register --org=${ORG_ID} --activationkey=${ACTIVATION_KEY}
 echo "$(uname -a)"
+cat /etc/*release
 # sudo yum update -y
 # sudo yum clean all
 # sudo yum install jq -y
