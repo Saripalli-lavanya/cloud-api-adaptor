@@ -71,6 +71,7 @@ build {
       "rm toupload/files.tar"
     ]
   }
+
   provisioner "file" {
     source      = "qcow2/copy-files.sh"
     destination = "~/copy-files.sh"
@@ -111,6 +112,33 @@ build {
     ]
     inline = [
       "sudo -E bash ~/misc-settings.sh"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "qcow2/build-s390x-se-image.sh"
+    destination = "~/build-s390x-se-image.sh"
+  }
+
+  provisioner "shell" {
+    remote_folder = "~"
+    environment_vars = [
+      "SE_BOOT=${var.se_boot}",
+      "ARCH=${var.os_arch}"
+    ]
+    inline = [
+      "sudo -E bash ~/build-s390x-se-image.sh"
+    ]
+  }
+
+  post-processor "shell-local" {
+    name   = "post-build-se-image"
+    script = "qcow2/build-s390x-se-image-post.sh"
+    environment_vars = [
+      "SE_BOOT=${var.se_boot}",
+      "ARCH=${var.os_arch}",
+      "OUTPUT_DIRECTORY=${var.output_directory}",
+      "IMAGE_NAME=${var.qemu_image_name}"
     ]
   }
 }
