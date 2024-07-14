@@ -154,6 +154,7 @@ export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME panic=0 blacklist=virtio_rng swi
 echo "${SE_PARMLINE}"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 sudo -E /usr/bin/genprotimg \
+    --verbose \
     -i ${dst_mnt}/boot/${KERNEL_FILE} \
     -r ${dst_mnt}/boot/${INITRD_FILE} \
     -p ${dst_mnt}/boot/parmfile \
