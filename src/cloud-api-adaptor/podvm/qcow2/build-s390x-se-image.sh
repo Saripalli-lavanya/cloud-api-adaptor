@@ -144,13 +144,14 @@ PARTUUID=$boot_uuid    /boot-se    ext4  defaults,norecovery 1 2
 END'
 
 echo "Generating an IBM Secure Execution image"
-KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
-INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
-
+KERNEL_FILE=$(readlink ${dst_mnt}/boot/*vmlinuz*)
+INITRD_FILE=$(readlink ${dst_mnt}/boot/*initramfs.img*)
+echo "KERNEL_FILE is $KERNEL_FILE"
+echo "INITRD_FILE is $INITRD_FILE"
 echo "Creating SE boot image"
-sudo wget https://github.com/ibm-s390-tools/s390-tools/tree/master/genprotimg -O /usr/bin/genprotimg
 sudo /usr/bin/genprotimg --version
 export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+echo "${SE_PARMLINE}"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 sudo -E /usr/bin/genprotimg \
     -i ${dst_mnt}/boot/${KERNEL_FILE} \
