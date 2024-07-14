@@ -150,7 +150,7 @@ echo "KERNEL_FILE is $KERNEL_FILE"
 echo "INITRD_FILE is $INITRD_FILE"
 echo "Creating SE boot image"
 sudo /usr/bin/genprotimg --version
-export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
 echo "${SE_PARMLINE}"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 sudo -E /usr/bin/genprotimg \
