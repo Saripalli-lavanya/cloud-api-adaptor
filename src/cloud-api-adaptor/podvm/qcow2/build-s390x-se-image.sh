@@ -26,7 +26,7 @@ echo "$(uname -a)"
 cat /etc/*release
 # sudo yum update -y
 # sudo yum clean all
-# sudo yum install jq -y
+sudo yum install jq -y
 # sudo yum remove unattended-upgrades -y
 # sudo yum install cryptsetup -y
 workdir=$(pwd)

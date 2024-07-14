@@ -57,7 +57,7 @@ ifeq ($(ARCH),s390x)
 	$(eval OPTS += -var machine_type=${QEMU_MACHINE_TYPE_${ARCH}})
 	$(eval OPTS += -var cpu_type=max)
 	$(eval OPTS += -var ORG_ID=${ORG_ID})
-	$(eval OPTS += -var ORG_ID=${ACTIVATION_KEY})
+	$(eval OPTS += -var ACTIVATION_KEY=${ACTIVATION_KEY})
 ifndef QEMU_BINARY
 	$(eval OPTS += -var qemu_binary=qemu-system-${ARCH})
 endif
