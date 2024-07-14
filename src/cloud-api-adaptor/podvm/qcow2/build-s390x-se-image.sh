@@ -147,7 +147,6 @@ echo "Generating an IBM Secure Execution image"
 KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
 INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
 
-
 echo "Creating SE boot image"
 export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
@@ -159,10 +158,8 @@ sudo -E /usr/bin/genprotimg \
     ${host_keys} \
     -o ${dst_mnt}/boot-se/se.img
 
-# exit and throw an error if no se image was created
-[ ! -e ${dst_mnt}/boot-se/se.img ] && exit 1
-# if building the image succeeded wipe /boot
-sudo rm -rf ${dst_mnt}/boot/*
+[ ! -e ${dst_mnt}/boot-se/se.img ] && { echo "Error: SE image creation failed."; exit 1; }
+
 echo "Running zipl to prepare boot partition"
 sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
     --targettype scsi \
@@ -171,15 +168,15 @@ sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
     --target /boot-se \
     --image /boot-se/se.img
 
-echo "Cleaning luks keyfile"
+echo "Cleaning up"
 sudo umount ${workdir}/rootkeys/ || true
 sudo rm -rf ${workdir}/rootkeys
-sudo umount ${dst_mnt}/etc/keys
-sudo umount ${dst_mnt}/boot-se
-sudo umount ${dst_mnt}/dev
-sudo umount ${dst_mnt}/proc
-sudo umount ${dst_mnt}/sys
-sudo umount ${dst_mnt}
+sudo umount ${dst_mnt}/etc/keys || true
+sudo umount ${dst_mnt}/boot-se || true
+sudo umount ${dst_mnt}/dev || true
+sudo umount ${dst_mnt}/proc || true
+sudo umount ${dst_mnt}/sys || true
+sudo umount ${dst_mnt} || true
 sudo rm -rf ${src_mnt} ${dst_mnt}
 
 echo "Closing encrypted root partition"
