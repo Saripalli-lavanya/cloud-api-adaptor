@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
@@ -148,6 +148,8 @@ KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
 INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
 
 echo "Creating SE boot image"
+sudo wget https://github.com/ibm-s390-tools/s390-tools/tree/master/genprotimg -O /usr/bin/genprotimg
+sudo /usr/bin/genprotimg --version
 export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 sudo -E /usr/bin/genprotimg \
