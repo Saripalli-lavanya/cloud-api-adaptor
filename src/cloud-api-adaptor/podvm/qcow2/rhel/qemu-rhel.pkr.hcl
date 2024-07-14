@@ -7,7 +7,7 @@ locals {
     ["-drive", "file=se-${var.qemu_image_name},if=none,format=qcow2,id=se-virtio-drive"],
     ["-device", "virtio-blk,drive=se-virtio-drive,id=virtio-disk1"]
   ]
-  qemuargs = [["-m", "${var.memory}"], ["-smp", "cpus=${var.cpus}"], ["-cdrom", "${var.cloud_init_image}"], ["-serial", "mon:stdio"], ["-cpu", "${var.cpu_type}"]]
+  qemuargs = [["-m", "${var.memory}"], ["-smp", "cpus=${var.cpus}"], ["-cdrom", "${var.cloud_init_image}"], ["-serial", "mon:stdio"], ["-cpu", "${var.cpu_type}"], ["-drive", "file=output/podvm-e74e3ca-dirty-s390x.qcow2,if=virtio,cache=writeback,discard=ignore,format=qcow2"]]
   final_qemuargs = "${var.se_boot}" == "1" ? concat(local.qemuargs, local.se_qemuargs) : local.qemuargs
 }
 
