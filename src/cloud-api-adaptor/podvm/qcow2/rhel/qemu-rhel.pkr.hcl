@@ -10,10 +10,10 @@ locals {
   qemuargs = [
     ["-m", "${var.memory}"],
     ["-smp", "cpus=${var.cpus}"],
+    ["-drive", "file=output/podvm-e74e3ca-dirty-s390x.qcow2,if=virtio,cache=writeback,discard=ignore,format=qcow2"],
     ["-cdrom", "${var.cloud_init_image}"],
     ["-serial", "mon:stdio"],
-    ["-cpu", "${var.cpu_type}"],
-    ["-drive", "file=output/podvm-e74e3ca-dirty-s390x.qcow2,if=virtio,cache=writeback,discard=ignore,format=qcow2"]
+    ["-cpu", "${var.cpu_type}"]
   ]
 final_qemuargs = "${var.se_boot}" == "1" ? concat(local.qemuargs, local.se_qemuargs) : local.qemuargs
 }
