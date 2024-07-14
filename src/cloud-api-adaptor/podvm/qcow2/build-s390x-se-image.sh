@@ -112,10 +112,12 @@ echo "Configuring kernel modules"
 sudo -E bash -c 'echo "blacklist virtio_rng" > ${dst_mnt}/etc/modprobe.d/blacklist-virtio.conf'
 sudo -E bash -c 'echo "s390_trng" >> ${dst_mnt}/etc/modules'
 
-echo "Preparing files needed for mkinitrd"
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
-sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
-
+sudo mkdir -p ${dst_mnt}/etc/cryptsetup-initramfs/
+sudo touch ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook
+sudo mkdir -p ${dst_mnt}/etc/initramfs-tools/
+sudo touch ${dst_mnt}/etc/initramfs-tools/initramfs.conf
+echo "Creating SE boot image"
+# Example for zipl.conf creation
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 # This file was auto-generated
 [defaultboot]
@@ -132,10 +134,54 @@ image = /boot-se/se.img
 END'
 
 echo "Updating initial ram disk"
-sudo chroot "${dst_mnt}" update-initramfs -u || true
+sudo chroot "${dst_mnt}" dracut -f || true
+
+# Adjusted example for /etc/fstab
+sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
+#This file was auto-generated
+/dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
+PARTUUID=$boot_uuid    /boot-se    ext4  defaults,norecovery 1 2
+END'
 
 echo "Generating an IBM Secure Execution image"
 KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
 INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
 
-echo "Creating SE boot ima
+
+echo "Creating SE boot image"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
+sudo -E /usr/bin/genprotimg \
+    -i ${dst_mnt}/boot/${KERNEL_FILE} \
+    -r ${dst_mnt}/boot/${INITRD_FILE} \
+    -p ${dst_mnt}/boot/parmfile \
+    --no-verify \
+    ${host_keys} \
+    -o ${dst_mnt}/boot-se/se.img
+
+# exit and throw an error if no se image was created
+[ ! -e ${dst_mnt}/boot-se/se.img ] && exit 1
+# if building the image succeeded wipe /boot
+sudo rm -rf ${dst_mnt}/boot/*
+echo "Running zipl to prepare boot partition"
+sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
+    --targettype scsi \
+    --targetblocksize 512 \
+    --targetoffset 2048 \
+    --target /boot-se \
+    --image /boot-se/se.img
+
+echo "Cleaning luks keyfile"
+sudo umount ${workdir}/rootkeys/ || true
+sudo rm -rf ${workdir}/rootkeys
+sudo umount ${dst_mnt}/etc/keys
+sudo umount ${dst_mnt}/boot-se
+sudo umount ${dst_mnt}/dev
+sudo umount ${dst_mnt}/proc
+sudo umount ${dst_mnt}/sys
+sudo umount ${dst_mnt}
+sudo rm -rf ${src_mnt} ${dst_mnt}
+
+echo "Closing encrypted root partition"
+sudo cryptsetup close $LUKS_NAME
+sleep 10
