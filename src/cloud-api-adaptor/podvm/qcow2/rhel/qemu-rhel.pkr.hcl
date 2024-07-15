@@ -10,7 +10,7 @@ locals {
   qemuargs = [
     ["-m", "${var.memory}"],
     ["-smp", "cpus=${var.cpus}"],
-    ["-drive", "file=output/podvm-e74e3ca-dirty-s390x.qcow2,if=virtio,cache=writeback,discard=ignore,format=qcow2"],
+    ["-drive", "file=output/podvm-*.qcow2,if=virtio,cache=writeback,discard=ignore,format=qcow2"],
     ["-cdrom", "${var.cloud_init_image}"],
     ["-serial", "mon:stdio"],
     ["-cpu", "${var.cpu_type}"]
