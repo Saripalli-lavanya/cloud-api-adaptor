@@ -113,7 +113,7 @@ build {
     remote_folder = "~"
     environment_vars = [
       "SE_BOOT=${var.se_boot}",
-      "ARCH=${var.os_arch}"
+      "ARCH=${var.os_arch}",
       "DISTRO=${var.podvm_distro}",
     ]
     inline = [
