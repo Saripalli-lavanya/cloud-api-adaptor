@@ -103,8 +103,6 @@ fi
 
 case $PODVM_DISTRO in
     rhel)
-        # sudo yum install cryptsetup -y
-        # sudo yum install jq -y
         systemctl disable kdump.service
         systemctl disable tuned.service
         systemctl disable firewalld.service
