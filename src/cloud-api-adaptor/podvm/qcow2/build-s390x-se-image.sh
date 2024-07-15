@@ -1,15 +1,11 @@
 #!/bin/bash
 
-export LANG=C.UTF-8
-
-# Check if SE_BOOT variable is set to 1 and architecture is s390x
 if [ "${SE_BOOT:-0}" != "1" ]; then
     exit 0
 elif [ "${ARCH}" != "s390x" ]; then
     echo "Building of SE podvm image is only supported for s390x"
     exit 0
 fi
-
 echo "Building SE podvm image for $ARCH"
 echo "Finding host key files"
 host_keys=""
@@ -20,17 +16,48 @@ for i in /tmp/files/*.crt; do
     host_keys+="-k ${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
+if [ "${DISTRO}" = "rhel" ]; then
+    export LANG=C.UTF-8
+    if ! command -v jq &> /dev/null || ! command -v cryptsetup &> /dev/null; then
+        if ! command -v jq &> /dev/null; then
+            echo >&2 "jq is required but it's not installed. Installing now..."
+            sudo yum install jq -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install jq. Aborting."
+                exit 1
+            fi
+        fi
 
+        if ! command -v cryptsetup &> /dev/null; then
+            echo >&2 "cryptsetup is required but it's not installed. Installing now..."
+            sudo yum install cryptsetup -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install cryptsetup. Aborting."
+                exit 1
+            fi
+        fi
+    fi
+    echo "jq and cryptsetup are installed. Proceeding with the script..."
+else
+    echo "Installing jq"
+    export DEBIAN_FRONTEND=noninteractive
+    sudo apt-get update > /dev/null 2>&1
+    sudo apt-get install jq -y > /dev/null 2>&1
+    sudo apt-get remove unattended-upgrades -y
+    sudo apt-get autoremove
+    sudo apt-get clean
+fi
+sudo rm -rf /var/lib/apt/lists/*
 workdir=$(pwd)
 disksize=100G
 device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
-
 echo "Found target device $device"
+# /dev/vda or /dev/vdb
 export tmp_nbd="/dev/$device"
 export dst_mnt=$workdir/dst_mnt
 export src_mnt=$workdir/src_mnt
-
 echo "Creating boot-se and root partitions"
+
 sudo parted -a optimal ${tmp_nbd} mklabel gpt \
     mkpart boot-se ext4 1MiB 256MiB \
     mkpart root 256MiB 6400MiB \
@@ -73,7 +100,6 @@ sudo umount ${src_mnt}
 echo "Partition copy complete"
 
 echo "Preparing secure execution boot image"
-ls ${dst_mnt}/home/peerpod/
 sudo rm -rf ${dst_mnt}/home/peerpod/*
 
 sudo mount -t sysfs sysfs ${dst_mnt}/sys
@@ -82,15 +108,13 @@ sudo mount --bind /dev ${dst_mnt}/dev
 
 sudo mkdir -p ${dst_mnt}/etc/keys
 sudo mount -t tmpfs keys ${dst_mnt}/etc/keys
-
+# ADD CONFIGURATION
 echo "Adding fstab"
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
 #This file was auto-generated
 /dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
 PARTUUID=$boot_uuid    /boot-se    ext4  norecovery 1 2
 END'
-echo $boot_uuid 
-cat ${dst_mnt}/etc/fstab
 
 echo "Adding luks keyfile for fs"
 dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
@@ -112,10 +136,16 @@ END'
 sudo -E bash -c 'echo s390_trng >> ${dst_mnt}/etc/modules'
 
 echo "Preparing files needed for mkinitrd"
-ls ${dst_mnt}/etc/
-sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
-sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
-sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+
+if [ "${DISTRO}" = "rhel" ]; then
+    sudo -E bash -c 'echo "install_items+=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
+    sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+else 
+    sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
+    sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+fi
 [defaultboot]
 default=linux
 target=/boot-se
@@ -130,26 +160,47 @@ image = /boot-se/se.img
 END'
 
 echo "Updating initial ram disk"
-sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
+if [ "${DISTRO}" = "rhel" ]; then
+    sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
+    echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
+    echo "Generating an IBM Secure Execution image"
+    cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/
+    KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
+    INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
+    echo "Creating SE boot image"
+    export SE_PARMLINE="panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
+    sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
+    sudo -E /usr/bin/genprotimg \
+        -i ${KERNEL_FILE} \
+        -r ${INITRD_FILE} \
+        -p ${dst_mnt}/boot/parmfile \
+        --no-verify \
+        ${host_keys} \
+        -o ${dst_mnt}/boot-se/se.img
+else
+    sudo chroot "${dst_mnt}" update-initramfs -u || true
+    echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
+    echo "Generating an IBM Secure Execution image"
 
-echo "Generating an IBM Secure Execution image"
-cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/
-KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
-INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
-echo "Creating SE boot image"
-export SE_PARMLINE="panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
-sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
-sudo -E /usr/bin/genprotimg \
-    -i ${KERNEL_FILE} \
-    -r ${INITRD_FILE} \
-    -p ${dst_mnt}/boot/parmfile \
-    --no-verify \
-    ${host_keys} \
-    -o ${dst_mnt}/boot-se/se.img
-# Check if SE image was created
+    # Clean up kernel names and make sure they are where we expect them
+    KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
+    INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
+    echo "Creating SE boot image"
+    export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+    sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
+    sudo -E /usr/bin/genprotimg \
+        -i ${dst_mnt}/boot/${KERNEL_FILE} \
+        -r ${dst_mnt}/boot/${INITRD_FILE} \
+        -p ${dst_mnt}/boot/parmfile \
+        --no-verify \
+        ${host_keys} \
+        -o ${dst_mnt}/boot-se/se.img
+fi
+
+# exit and throw an error if no se image was created
 [ ! -e ${dst_mnt}/boot-se/se.img ] && exit 1
+# if building the image succeeded wipe /boot
 sudo rm -rf ${dst_mnt}/boot/*
-
 echo "Running zipl to prepare boot partition"
 sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
     --targettype scsi \
@@ -158,8 +209,7 @@ sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
     --target /boot-se \
     --image /boot-se/se.img
 
-# Clean up
-echo "Cleaning up"
+echo "Cleaning luks keyfile"
 sudo umount ${workdir}/rootkeys/ || true
 sudo rm -rf ${workdir}/rootkeys
 sudo umount ${dst_mnt}/etc/keys
@@ -172,7 +222,4 @@ sudo rm -rf ${src_mnt} ${dst_mnt}
 
 echo "Closing encrypted root partition"
 sudo cryptsetup close $LUKS_NAME
-
 sleep 10
-
-echo "RHEL-based SE podvm qcow2 image build completed successfully"
