@@ -166,7 +166,7 @@ echo "Updating initial ram disk"
 echo "before dracut"
 ls ${dst_mnt}/boot/
 sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
-
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 echo "Generating an IBM Secure Execution image"
 
 # Clean up kernel names and make sure they are where we expect them
