@@ -39,6 +39,8 @@ device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] |
 tmp_nbd="/dev/$device"
 dst_mnt=$workdir/dst_mnt
 src_mnt=$workdir/src_mnt
+echo "pwd"
+pwd
 echo "Found target device: $device"
 
 # Set up disk and partitions
@@ -90,7 +92,7 @@ sudo -E bash -c 'cat <<END > /etc/zipl.conf
 [defaultboot]
 default=linux
 target=/boot-se
-targetbase=/dev/vda
+targetbase=/dev/vdb1
 targettype=scsi
 targetblocksize=512
 targetoffset=2048
