@@ -197,6 +197,11 @@ sudo chroot "${dst_mnt}" zipl --targetbase ${tmp_nbd} \
     --targetoffset 2048 \
     --target /boot-se \
     --image /boot-se/se.img
+lsblk
+echo "ls /root/"
+ls /root/
+echo "ls /etc/"
+ls /etc/
 
 # Clean up
 echo "Cleaning up"
@@ -207,7 +212,7 @@ sudo umount ${dst_mnt}/boot-se
 sudo umount ${dst_mnt}/dev
 sudo umount ${dst_mnt}/proc
 sudo umount ${dst_mnt}/sys
-sudo umount ${dst_mnt}
+# sudo umount ${dst_mnt}
 sudo rm -rf ${src_mnt} ${dst_mnt}
 
 echo "Script completed successfully"
