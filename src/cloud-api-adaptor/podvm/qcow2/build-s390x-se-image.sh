@@ -84,6 +84,7 @@ echo "luks name is: $LUKS_NAME"
 echo "Copying root filesystem to encrypted partition"
 # sudo mkfs.ext4 -L "root" ${tmp_nbd}2
 sudo mke2fs -t ext4 -L root ${tmp_nbd}2
+boot_uuid2=$(sudo blkid ${tmp_nbd}2 -s PARTUUID -o value)
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
 # sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
@@ -109,27 +110,27 @@ echo "Adding fstab"
 echo "Configuring filesystems and boot setup"
 sudo -E bash -c 'cat <<END > /home/peerpod/dst_mnt/etc/fstab
 #This file was auto-generated
-/dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
+PARTUUID=${boot_uuid2}    /        ext4  defaults 1 1
 PARTUUID=${boot_uuid}    /boot-se    ext4  norecovery 1 2
 END'
 sudo chmod 644 /home/peerpod/dst_mnt/etc/fstab
 cat /home/peerpod/dst_mnt/etc/fstab
 
-echo "Adding luks keyfile for fs"
-dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
-sudo cp "${workdir}/rootkeys/rootkey.bin" "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
-sudo chmod 600 "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
+# echo "Adding luks keyfile for fs"
+# dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
+# sudo cp "${workdir}/rootkeys/rootkey.bin" "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
+# sudo chmod 600 "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
 
 # Add LUKS keyfile to crypttab
-echo "Add LUKS keyfile to crypttab"
-sudo touch /home/peerpod/dst_mnt/etc/crypttab
-sudo -E bash -c 'echo "${LUKS_NAME} UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/${LUKS_NAME}).key luks,discard,initramfs" > /home/peerpod/dst_mnt/etc/crypttab'
-echo "ls ${dst_mnt}/etc/crypttab"
-ls -ltrh "${dst_mnt}"/etc/crypttab
-ls "${dst_mnt}"/etc/
-cat "${dst_mnt}"/etc/crypttab
+# echo "Add LUKS keyfile to crypttab"
+# sudo touch /home/peerpod/dst_mnt/etc/crypttab
+# sudo -E bash -c 'echo "${LUKS_NAME} UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/${LUKS_NAME}).key luks,discard,initramfs" > /home/peerpod/dst_mnt/etc/crypttab'
+# echo "ls ${dst_mnt}/etc/crypttab"
+# ls -ltrh "${dst_mnt}"/etc/crypttab
+# ls "${dst_mnt}"/etc/
+# cat "${dst_mnt}"/etc/crypttab
 
-sudo chmod 744 /home/peerpod/dst_mnt/etc/crypttab
+# sudo chmod 744 /home/peerpod/dst_mnt/etc/crypttab
 
 # Disable virtio_rng
 sudo -E bash -c 'echo "blacklist virtio_rng" > /home/peerpod/dst_mnt/etc/modprobe.d/blacklist-virtio.conf'
