@@ -21,7 +21,8 @@ for i in /tmp/files/*.crt; do
     host_keys+="${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
-
+cp $host_keys /root/HKD.crt
+chmod 554 /root/HKD.crt
 echo "Building SE podvm image for $ARCH"
 
 # Ensure jq is installed
@@ -40,7 +41,8 @@ device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] |
 tmp_nbd="/dev/$device"
 dst_mnt=$workdir/dst_mnt
 src_mnt=$workdir/src_mnt
-
+ls -ltrh /
+ls -ltrh /etc/
 echo "Found target device: $device"
 
 # Set up disk and partitions
@@ -50,7 +52,8 @@ sudo parted -a optimal ${tmp_nbd} mklabel gpt \
     mkpart root 256MiB 6400MiB \
     mkpart data 6400MiB ${disksize} \
     set 1 boot on
-
+ls -ltrh /
+ls -ltrh /etc/
 # Wait for partitions to be created
 echo "Waiting for partitions to be detected..."
 while ! sudo ls ${tmp_nbd}1 || ! sudo ls ${tmp_nbd}2; do
@@ -71,11 +74,11 @@ echo "Setting up encrypted root partition"
 sudo mkdir -p ${workdir}/rootkeys
 sudo mount -t tmpfs rootkeys ${workdir}/rootkeys
 sudo dd if=/dev/random of=${workdir}/rootkeys/rootkey.bin bs=1 count=64
-echo YES | sudo cryptsetup luksFormat --type luks2 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
+# echo YES | sudo cryptsetup luksFormat --type luks2 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
 LUKS_NAME="luks-$(sudo blkid -s UUID -o value ${tmp_nbd}2)"
 export LUKS_NAME
 echo "luks name is: $LUKS_NAME"
-sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/rootkey.bin
+# sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/rootkey.bin
 
 # Copy the root filesystem
 echo "Copying root filesystem to encrypted partition"
@@ -173,7 +176,7 @@ sudo /usr/bin/genprotimg \
     -r "${INITRD_FILE}" \
     -p "${dst_mnt}"/boot/parmfile \
     --no-verify \
-    -k "${host_keys}" \
+    -k "/root/HKD.crt" \
     -o "${dst_mnt}"/boot-se/se.img
 
 # Check if SE image was created
