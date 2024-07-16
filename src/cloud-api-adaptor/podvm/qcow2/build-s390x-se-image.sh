@@ -107,8 +107,7 @@ sudo chmod 600 "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
 
 # Add LUKS keyfile to crypttab
 echo "Add LUKS keyfile to crypttab"
-echo "ls ${dst_mnt}/etc/crypttab"
-ls ${dst_mnt}/etc/crypttab
+sudo touch ${dst_mnt}/etc/crypttab
 sudo -E bash -c 'echo "${LUKS_NAME} UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/${LUKS_NAME}).key luks,discard,initramfs" > ${dst_mnt}/etc/crypttab'
 echo "ls ${dst_mnt}/etc/crypttab"
 ls ${dst_mnt}/etc/
