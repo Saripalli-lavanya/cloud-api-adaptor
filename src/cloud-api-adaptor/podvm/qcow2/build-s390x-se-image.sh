@@ -14,6 +14,15 @@ elif [ "${ARCH}" != "s390x" ]; then
     echo "Building of SE podvm image is only supported for s390x, exiting..."
     exit 1
 fi
+echo "Finding host key files"
+host_keys=""
+rm /tmp/files/.dummy.crt || true
+for i in /tmp/files/*.crt; do
+    [[ -f "$i" ]] || break
+    echo "found host key file: \"${i}\""
+    host_keys+="-k ${i} "
+done
+[[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
 
 echo "Building SE podvm image for $ARCH"
 
