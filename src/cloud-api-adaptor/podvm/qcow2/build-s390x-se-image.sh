@@ -85,6 +85,7 @@ echo "Copying root filesystem to encrypted partition"
 # sudo mkfs.ext4 -L "root" ${tmp_nbd}2
 sudo mke2fs -t ext4 -L root ${tmp_nbd}2
 boot_uuid2=$(sudo blkid ${tmp_nbd}2 -s PARTUUID -o value)
+export boot_uuid2
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
 # sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
@@ -165,9 +166,9 @@ ls -ltrh /boot/
 echo "Creating IBM Secure Execution boot image"
 KERNEL_FILE=/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
-export SE_PARMLINE="root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
+export SE_PARMLINE="root=/ panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
 sudo touch /home/peerpod/dst_mnt/boot/parmfile
-sudo -E bash -c 'echo "root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0" > /home/peerpod/dst_mnt/boot/parmfile'
+sudo -E bash -c 'echo "root=/ panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0" > /home/peerpod/dst_mnt/boot/parmfile'
 echo "printing param file"
 ls -lrh "${dst_mnt}"/boot/
 cat "${dst_mnt}"/boot/parmfile
