@@ -202,7 +202,8 @@ echo "ls /root/"
 ls /root/
 echo "ls /etc/"
 ls /etc/
-
+echo "cat /sys/firmware/uv/prot_virt_guest"
+cat /sys/firmware/uv/prot_virt_guest
 # Clean up
 echo "Cleaning up"
 sudo umount ${workdir}/rootkeys/
@@ -214,6 +215,9 @@ sudo umount ${dst_mnt}/proc
 sudo umount ${dst_mnt}/sys
 # sudo umount ${dst_mnt}
 sudo rm -rf ${src_mnt} ${dst_mnt}
+ls
+cd /
+ls
 
 echo "Script completed successfully"
 echo "Closing encrypted root partition"
