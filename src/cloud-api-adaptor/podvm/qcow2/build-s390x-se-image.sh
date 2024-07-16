@@ -108,6 +108,7 @@ echo "Creating IBM Secure Execution boot image"
 KERNEL_FILE=/boot/vmlinuz-$(uname -r)
 INITRD_FILE=/boot/initramfs-$(uname -r).img
 export SE_PARMLINE="root=/ panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
+echo "$SE_PARMLINE" > /boot/parmfile
 sudo /usr/bin/genprotimg \
     --verbose \
     -i "${KERNEL_FILE}" \
