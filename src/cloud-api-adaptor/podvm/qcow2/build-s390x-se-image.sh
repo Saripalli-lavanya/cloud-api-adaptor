@@ -120,8 +120,7 @@ sudo -E bash -c 'echo "blacklist virtio_rng" > ${dst_mnt}/etc/modprobe.d/blackli
 sudo -E bash -c 'echo "s390_trng" > ${dst_mnt}/etc/modules'
 
 # Configure dracut and zipl
-
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
+sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
 sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 [defaultboot]
