@@ -120,7 +120,9 @@ END'
 # Update initramfs and GRUB configuration
 echo "Updating initramfs and GRUB configuration"
 sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
+cat /boot/grub2/grub.cfg
 sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+cat /boot/grub2/grub.cfg
 
 # Create SE boot image
 echo "Creating IBM Secure Execution boot image"
@@ -153,14 +155,14 @@ sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
 
 # Clean up
 echo "Cleaning up"
-sudo umount ${workdir}/rootkeys/
-sudo rm -rf ${workdir}/rootkeys
-sudo umount ${dst_mnt}/etc/keys
-sudo umount ${dst_mnt}/boot-se
-sudo umount ${dst_mnt}/dev
-sudo umount ${dst_mnt}/proc
-sudo umount ${dst_mnt}/sys
-sudo umount ${dst_mnt}
-sudo rm -rf ${src_mnt} ${dst_mnt}
+# sudo umount ${workdir}/rootkeys/
+# sudo rm -rf ${workdir}/rootkeys
+# sudo umount ${dst_mnt}/etc/keys
+# sudo umount ${dst_mnt}/boot-se
+# sudo umount ${dst_mnt}/dev
+# sudo umount ${dst_mnt}/proc
+# sudo umount ${dst_mnt}/sys
+# sudo umount ${dst_mnt}
+# sudo rm -rf ${src_mnt} ${dst_mnt}
 
 echo "Script completed successfully"
