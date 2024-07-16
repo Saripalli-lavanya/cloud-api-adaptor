@@ -82,10 +82,11 @@ echo "luks name is: $LUKS_NAME"
 
 # Copy the root filesystem
 echo "Copying root filesystem to encrypted partition"
-sudo mkfs.ext4 -L "root" /dev/mapper/${LUKS_NAME}
+# sudo mkfs.ext4 -L "root" ${tmp_nbd}2
+sudo mke2fs -t ext4 -L root ${tmp_nbd}2
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
-sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
+# sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
 sudo mount
 sudo lsblk
 ls -lrh ${dst_mnt}
@@ -135,7 +136,7 @@ sudo -E bash -c 'echo "blacklist virtio_rng" > /home/peerpod/dst_mnt/etc/modprob
 sudo -E bash -c 'echo "s390_trng" > /home/peerpod/dst_mnt/etc/modules'
 
 # Configure dracut and zipl
-sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/cryptsetup.conf'
+# sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/cryptsetup.conf'
 sudo -E bash -c 'echo "UMASK=0077" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/initramfs.conf'
 sudo -E bash -c 'cat <<END > /home/peerpod/dst_mnt/etc/zipl.conf
 [defaultboot]
@@ -210,5 +211,5 @@ sudo rm -rf ${src_mnt} ${dst_mnt}
 
 echo "Script completed successfully"
 echo "Closing encrypted root partition"
-sudo cryptsetup close $LUKS_NAME
+# sudo cryptsetup close $LUKS_NAME
 sleep 10
