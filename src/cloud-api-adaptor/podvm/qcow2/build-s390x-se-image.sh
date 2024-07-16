@@ -84,11 +84,11 @@ echo "Copying root filesystem to encrypted partition"
 sudo mkfs.ext4 -L "root" /dev/mapper/${LUKS_NAME}
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
-sudo mount /dev/mapper/$LUKS_NAME ${dst_mnt}
+sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
 sudo mount
 ls -lrh ${dst_mnt}
 sudo mkdir ${dst_mnt}/boot-se
-sudo mount -o norecovery ${tmp_nbd}1 ${dst_mnt}/boot-se
+sudo mount -o norecovery ${tmp_nbd}1 /home/peerpod/dst_mnt/boot-se
 sudo mount --bind -o ro / ${src_mnt}
 sudo tar --numeric-owner --preserve-permissions --acl --xattrs --xattrs-include='*' --sparse --one-file-system -cf - -C ${src_mnt} . | sudo tar -xf - -C ${dst_mnt}
 sudo umount ${src_mnt}
@@ -96,49 +96,49 @@ echo "Partition copy complete"
 echo "Preparing secure execution boot image"
 sudo rm -rf ${dst_mnt}/home/peerpod/*
 
-sudo mount -t sysfs sysfs ${dst_mnt}/sys
-sudo mount -t proc proc ${dst_mnt}/proc
-sudo mount --bind /dev ${dst_mnt}/dev
-sudo mkdir -p ${dst_mnt}/etc/keys
-sudo mount -t tmpfs keys ${dst_mnt}/etc/keys
+sudo mount -t sysfs sysfs /home/peerpod/dst_mnt/sys
+sudo mount -t proc proc /home/peerpod/dst_mnt/proc
+sudo mount --bind /dev /home/peerpod/dst_mnt/dev
+sudo mkdir -p /home/peerpod/dst_mnt/etc/keys
+sudo mount -t tmpfs keys /home/peerpod/dst_mnt/etc/keys
 
 echo "Adding fstab"
 echo "Configuring filesystems and boot setup"
-sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
+sudo -E bash -c 'cat <<END > /home/peerpod/dst_mnt/etc/fstab
 #This file was auto-generated
 /dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
 PARTUUID=${boot_uuid}    /boot-se    ext4  norecovery 1 2
 END'
-sudo chmod 644 ${dst_mnt}/etc/fstab
+sudo chmod 644 /home/peerpod/dst_mnt/etc/fstab
+cat /home/peerpod/dst_mnt/etc/fstab
 
 echo "Adding luks keyfile for fs"
 dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
-sudo cp "${workdir}/rootkeys/rootkey.bin" "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
-sudo chmod 600 "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
+sudo cp "${workdir}/rootkeys/rootkey.bin" "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
+sudo chmod 600 "/home/peerpod/dst_mnt/etc/keys/luks-${dev_uuid}.key"
 
 # Add LUKS keyfile to crypttab
 echo "Add LUKS keyfile to crypttab"
-sudo touch "${dst_mnt}"/etc/crypttab
-sudo -E bash -c 'echo "${LUKS_NAME} UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/${LUKS_NAME}).key luks,discard,initramfs" > ${dst_mnt}/etc/crypttab'
+sudo touch /home/peerpod/dst_mnt/etc/crypttab
+sudo -E bash -c 'echo "${LUKS_NAME} UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/${LUKS_NAME}).key luks,discard,initramfs" > /home/peerpod/dst_mnt/etc/crypttab'
 echo "ls ${dst_mnt}/etc/crypttab"
 ls -ltrh "${dst_mnt}"/etc/crypttab
 ls "${dst_mnt}"/etc/
 cat "${dst_mnt}"/etc/crypttab
 
-sudo chmod 744 "${dst_mnt}"/etc/crypttab
+sudo chmod 744 /home/peerpod/dst_mnt/etc/crypttab
 
 # Disable virtio_rng
-sudo -E bash -c 'echo "blacklist virtio_rng" > ${dst_mnt}/etc/modprobe.d/blacklist-virtio.conf'
-sudo -E bash -c 'echo "s390_trng" > ${dst_mnt}/etc/modules'
+sudo -E bash -c 'echo "blacklist virtio_rng" > /home/peerpod/dst_mnt/etc/modprobe.d/blacklist-virtio.conf'
+sudo -E bash -c 'echo "s390_trng" > /home/peerpod/dst_mnt/etc/modules'
 
 # Configure dracut and zipl
-sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
+sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/cryptsetup.conf'
 sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
-sudo -E bash -c 'cat <<END > "${dst_mnt}"/etc/zipl.conf
+sudo -E bash -c 'cat <<END > /home/peerpod/dst_mnt/etc/zipl.conf
 [defaultboot]
 default=linux
 target=/boot-se
-
 targetbase=/dev/vda
 targettype=scsi
 targetblocksize=512
@@ -162,8 +162,8 @@ echo "Creating IBM Secure Execution boot image"
 KERNEL_FILE=/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 export SE_PARMLINE="root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
-sudo touch "${dst_mnt}"/boot/parmfile
-sudo -E bash -c 'echo "${SE_PARMLINE}" > "${dst_mnt}"/boot/parmfile'
+sudo touch /home/peerpod/dst_mnt/boot/parmfile
+sudo -E bash -c 'echo "${SE_PARMLINE}" > /home/peerpod/dst_mnt/boot/parmfile'
 echo "printing param file"
 ls -lrh "${dst_mnt}"/boot/
 cat "${dst_mnt}"/boot/parmfile
