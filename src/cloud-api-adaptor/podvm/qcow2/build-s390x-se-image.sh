@@ -161,6 +161,9 @@ KERNEL_FILE=/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 export SE_PARMLINE="root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
+echo "printing param file"
+cat ${dst_mnt}/boot/parmfile
+
 sudo /usr/bin/genprotimg \
     --verbose \
     -i ${KERNEL_FILE} \
