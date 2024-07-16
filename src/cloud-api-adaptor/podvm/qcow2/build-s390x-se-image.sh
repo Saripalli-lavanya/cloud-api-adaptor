@@ -139,10 +139,12 @@ END'
 # Update initramfs and GRUB configuration
 echo "Updating initramfs and GRUB configuration"
 sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
-
-echo "cat /boot/grub2/grub.cfg"
-cat /boot/grub2/grub.cfg
-
+echo "ls ${dst_mnt}"
+ls ${dst_mnt}
+echo "ls ${dst_mnt}/boot/"
+ls ${dst_mnt}/boot/
+echo "ls /boot/"
+ls /boot/
 sudo grub2-mkconfig -v -o /boot/grub2/grub.cfg
 echo "cat /boot/grub2/grub.cfg after grub update"
 cat /boot/grub2/grub.cfg
