@@ -1,12 +1,10 @@
 #!/bin/bash
 set -x
-set -e  # Exit immediately if any command fails
+set -e  
 
 export LANG=C.UTF-8
 
 echo "Starting script..."
-
-# Check if SE_BOOT variable is set to 1 and architecture is s390x
 if [ "${SE_BOOT:-0}" != "1" ]; then
     echo "SE_BOOT variable is not set to 1, exiting..."
     exit 1
@@ -20,7 +18,7 @@ rm /tmp/files/.dummy.crt || true
 for i in /tmp/files/*.crt; do
     [[ -f "$i" ]] || break
     echo "found host key file: \"${i}\""
-    host_keys+="-k ${i} "
+    host_keys+="${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
 
@@ -86,6 +84,7 @@ sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
 sudo mount /dev/mapper/$LUKS_NAME /home/peerpod/dst_mnt
 sudo mount
+sudo lsblk
 ls -lrh ${dst_mnt}
 sudo mkdir ${dst_mnt}/boot-se
 sudo mount -o norecovery ${tmp_nbd}1 /home/peerpod/dst_mnt/boot-se
@@ -134,7 +133,7 @@ sudo -E bash -c 'echo "s390_trng" > /home/peerpod/dst_mnt/etc/modules'
 
 # Configure dracut and zipl
 sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/cryptsetup.conf'
-sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
+sudo -E bash -c 'echo "UMASK=0077" >> /home/peerpod/dst_mnt/etc/dracut.conf.d/initramfs.conf'
 sudo -E bash -c 'cat <<END > /home/peerpod/dst_mnt/etc/zipl.conf
 [defaultboot]
 default=linux
@@ -163,18 +162,18 @@ KERNEL_FILE=/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 export SE_PARMLINE="root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
 sudo touch /home/peerpod/dst_mnt/boot/parmfile
-sudo -E bash -c 'echo "${SE_PARMLINE}" > /home/peerpod/dst_mnt/boot/parmfile'
+sudo -E bash -c 'echo "root=/dev/mapper/${LUKS_NAME} panic=0 blacklist=virtio_rng swiotlb=262144 console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0" > /home/peerpod/dst_mnt/boot/parmfile'
 echo "printing param file"
 ls -lrh "${dst_mnt}"/boot/
 cat "${dst_mnt}"/boot/parmfile
-
+lsblk
 sudo /usr/bin/genprotimg \
     --verbose \
     -i "${KERNEL_FILE}" \
     -r "${INITRD_FILE}" \
     -p "${dst_mnt}"/boot/parmfile \
     --no-verify \
-    "${host_keys}" \
+    -k "${host_keys}" \
     -o "${dst_mnt}"/boot-se/se.img
 
 # Check if SE image was created
@@ -183,7 +182,7 @@ if [ ! -e ${dst_mnt}/boot-se/se.img ]; then
     exit 1
 fi
 ls -ltrh "${dst_mnt}"/boot-se/se.img
-
+ls -ltrh "${dst_mnt}"/boot-se
 
 # Run zipl to prepare boot partition
 echo "Running zipl to prepare boot partition"
