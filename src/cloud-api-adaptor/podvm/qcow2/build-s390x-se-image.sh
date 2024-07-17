@@ -158,7 +158,7 @@ sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 default=linux
 target=/boot-se
 
-targetbase=/dev/vda
+targetbase=/dev/vdb
 targettype=scsi
 targetblocksize=512
 targetoffset=2048
