@@ -10,5 +10,7 @@ fi
 [ ! -e "se-${IMAGE_NAME}" ] && exit 1
 rm -f "${OUTPUT_DIRECTORY}/${IMAGE_NAME}"
 qemu-img convert -O qcow2 -c se-${IMAGE_NAME} ${OUTPUT_DIRECTORY}/se-${IMAGE_NAME}
+sudo cp -a /tmp/files/etc/rootkeys/ ${OUTPUT_DIRECTORY}/
+rm -rf /tmp/files/etc/rootkeys/*
 rm -f se-${IMAGE_NAME}
 echo "SE podvm image for s390x is built: ${OUTPUT_DIRECTORY}/se-${IMAGE_NAME}"
