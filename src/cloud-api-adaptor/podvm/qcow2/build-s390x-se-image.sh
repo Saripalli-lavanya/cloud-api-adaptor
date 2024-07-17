@@ -61,8 +61,7 @@ export src_mnt=$workdir/src_mnt
 echo "Creating boot-se and root partitions"
 sudo parted -a optimal ${tmp_nbd} mklabel gpt \
     mkpart boot-se ext4 1MiB 256MiB \
-    mkpart root 256MiB 6400MiB \
-    mkpart data 6400MiB ${disksize} \
+    mkpart root 256MiB "${disksize}" \
     set 1 boot on
 
 echo "Waiting for the two partitions to show up"
@@ -75,17 +74,18 @@ done
 echo "Formatting boot-se partition"
 sudo mke2fs -t ext4 -L boot-se ${tmp_nbd}1
 boot_uuid=$(sudo blkid ${tmp_nbd}1 -s PARTUUID -o value)
+root_uuid=$(sudo blkid ${tmp_nbd}2 -s PARTUUID -o value)
 export boot_uuid
-
+export root_uuid
 # Set up encrypted root partition
 echo "Setting up encrypted root partition"
 sudo mkdir ${workdir}/rootkeys
 sudo mount -t tmpfs rootkeys ${workdir}/rootkeys
 sudo dd if=/dev/random of=${workdir}/rootkeys/rootkey.bin bs=1 count=64 &> /dev/null
 echo YES | sudo cryptsetup luksFormat --type luks2 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
-mkdir -p /tmp/files/etc/rootkeys/
-echo "ls ${workdir}/rootkeys/"
-ls ${workdir}/rootkeys/
+mkdir -p /tmp/files/etc/rootkeys/ &> /dev/null
+echo "ls ${workdir}/rootkeys/" 
+ls ${workdir}/rootkeys/ &> /dev/null
 sudo cp -a ${workdir}/rootkeys/ /tmp/files/etc/rootkeys/
 echo "Setting luks name for root partition"
 LUKS_NAME="luks-$(sudo blkid -s UUID -o value ${tmp_nbd}2)"
@@ -96,20 +96,22 @@ sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/rootk
 # Copy the root filesystem
 echo "Copying the root filesystem"
 sudo mkfs.ext4 -L "root" /dev/mapper/${LUKS_NAME}
+sudo mount /dev/mapper/$LUKS_NAME ${dst_mnt}
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
-sudo mount /dev/mapper/$LUKS_NAME ${dst_mnt}
+sudo mkdir ${dst_mnt}/etc
 sudo mkdir ${dst_mnt}/boot-se
+sudo mkdir ${dst_mnt}/boot
 sudo mount -o norecovery ${tmp_nbd}1 ${dst_mnt}/boot-se
 sudo mount --bind -o ro / ${src_mnt}
-tar_opts=(--numeric-owner --preserve-permissions --acl --selinux --xattrs --xattrs-include='*' --sparse  --one-file-system)
-sudo tar -cf - "${tar_opts[@]}" --sort=none -C ${src_mnt} . | sudo tar -xf - "${tar_opts[@]}" --preserve-order  -C "$dst_mnt"
+sudo mount -o bind ${src_mnt}/boot ${dst_mnt}/boot
+tar_opts=(--numeric-owner --preserve-permissions --acl --selinux --xattrs --xattrs-include='*' --sparse)
+tar -cf - "${tar_opts[@]}" --sort=none -C "$src_mnt" . | tar -xf - "${tar_opts[@]}" --preserve-order  -C "$dst_mnt"
 sudo umount ${src_mnt}
 echo "Partition copy complete"
 
 # Prepare secure execution boot image
 echo "Preparing secure execution boot image"
-ls ${dst_mnt}/home/peerpod/
 sudo rm -rf ${dst_mnt}/home/peerpod/*
 
 sudo mount -t sysfs sysfs ${dst_mnt}/sys
@@ -133,7 +135,6 @@ echo "Adding luks keyfile for fs"
 dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
 sudo cp "${workdir}/rootkeys/rootkey.bin" "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
 sudo chmod 600 "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
-
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/crypttab
 #This file was auto-generated
 $LUKS_NAME UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/$LUKS_NAME).key luks,discard,initramfs
@@ -157,7 +158,7 @@ sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 default=linux
 target=/boot-se
 
-targetbase=${tmp_nbd}
+targetbase=/dev/vda
 targettype=scsi
 targetblocksize=512
 targetoffset=2048
@@ -169,7 +170,7 @@ END'
 echo "Updating initial ram disk"
 echo "before dracut"
 ls ${dst_mnt}/boot/
-sudo chroot "${dst_mnt}" dracut -f /boot/initramfs-$(uname -r).img $(uname -r) || true
+sudo chroot "${dst_mnt}" dracut -f || true
 
 echo "Generating an IBM Secure Execution image"
 
@@ -183,8 +184,8 @@ ls ${dst_mnt}/boot/
 KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 echo "Creating SE boot image"
-export SE_PARMLINE="panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
-#export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+# export SE_PARMLINE="panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 echo "cat parmfile"
 cat ${dst_mnt}/boot/parmfile
@@ -205,7 +206,7 @@ echo "not here"
 sudo rm -rf ${dst_mnt}/boot/*
 
 echo "Running zipl to prepare boot partition"
-sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
+sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd}1 \
     --targettype scsi \
     --targetblocksize 512 \
     --targetoffset 2048 \
