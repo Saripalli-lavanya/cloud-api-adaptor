@@ -84,25 +84,23 @@ echo "Setting up encrypted root partition"
 sudo mkdir ${workdir}/rootkeys
 sudo mount -t tmpfs rootkeys ${workdir}/rootkeys
 sudo dd if=/dev/random of=${workdir}/rootkeys/rootkey.bin bs=1 count=64 &> /dev/null
-# cat ${workdir}/rootkeys/rootkey.bin
-#    cryptsetup luksFormat \
-#               --type luks2 --key-size 512 --sector-size 4096 --iter-time 2000  \
-#               --cipher aes-xts-plain64 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
 echo YES | sudo cryptsetup luksFormat --type luks2 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
 echo "${workdir}/rootkeys/*****************"
 ls ${workdir}/rootkeys/
-# cat ${workdir}/rootkeys/rootkey.bin
-sudo mke2fs -t ext4 -L root "${tmp_nbd}"2
+
 echo "Setting luks name for root partition"
-LUKS_NAME="$(blkid "${tmp_nbd}"2 -s PARTUUID -o value)"
+LUKS_NAME="luks-$(sudo blkid -s UUID -o value ${tmp_nbd}2)"
 export LUKS_NAME
 echo "luks name is: $LUKS_NAME"
 sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/rootkey.bin
+
+echo "Copying the root filesystem"
+sudo mkfs.ext4 -L "root" /dev/mapper/${LUKS_NAME}
 echo "ls root***************"
 ls /root
 sudo mkdir -p ${dst_mnt}
 sudo mkdir -p ${src_mnt}
-sudo mount "${tmp_nbd}"2 ${dst_mnt}
+sudo mount /dev/mapper/$LUKS_NAME ${dst_mnt}
 echo "dstmnt*************"
 ls ${dst_mnt}
 sudo mkdir ${dst_mnt}/boot-se
@@ -156,7 +154,7 @@ ls ${dst_mnt}/etc/keys
 echo "Adding fstab"
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
 #This file was auto-generated
-PARTUUID=$LUKS_NAME    /        ext4  defaults 1 1
+/dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
 PARTUUID=$boot_uuid    /boot-se    ext4  norecovery 1 2
 END'
 echo $boot_uuid 
@@ -179,8 +177,8 @@ ls ${dst_mnt}/etc/keys/
 
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/crypttab
 #This file was auto-generated
-#$LUKS_NAME UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/$LUKS_NAME).key luks,discard,initramfs
-#END'
+$LUKS_NAME UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/$LUKS_NAME).key luks,discard,initramfs
+END'
 sudo chmod 744 "${dst_mnt}/etc/crypttab"
 echo "crypttab*************"
 cat ${dst_mnt}/etc/crypttab
@@ -233,7 +231,7 @@ echo "Updating initial ram disk"
 echo "before dracut"
 ls ${dst_mnt}/boot/
 
-#sudo chroot ${dst_mnt} dracut -f --regenerate-all
+sudo chroot "${dst_mnt}" dracut -f --regenerate-all
 
 ls /boot/
 ls ${dst_mnt}/boot
@@ -248,15 +246,11 @@ ls ${dst_mnt}/boot/
 cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/
 echo "ls bootdst after dracut and vmlinuz"
 ls ${dst_mnt}/boot/
-sudo chroot ${dst_mnt} dracut -f --kver
 ls ${dst_mnt}/boot/
-sudo chroot ${dst_mnt} dracut -f --regenerate-all
 KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 echo "Creating SE boot image"
-export SE_PARMLINE="root=PARTUUID=$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
-#export SE_PARMLINE="panic=0 blacklist=virtio_rng swiotlb=262144 cloud-init=disabled console=ttyS0 printk.time=0 systemd.getty_auto=0 systemd.firstboot=0 module.sig_enforce=1 quiet loglevel=0 systemd.show_status=0"
-#export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 echo "cat parmfile"
 cat ${dst_mnt}/boot/parmfile
