@@ -186,7 +186,7 @@ fi
 echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
 echo "Generating an IBM Secure Execution image"
 echo "Creating SE boot image"
-export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME rd.auto=1 rd.retry=30 console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 echo "ls ${dst_mnt}/"
 ls ${dst_mnt}/
