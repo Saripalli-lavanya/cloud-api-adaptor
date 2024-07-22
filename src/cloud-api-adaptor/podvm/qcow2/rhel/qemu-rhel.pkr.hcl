@@ -7,15 +7,26 @@ locals {
     ["-drive", "file=se-${var.qemu_image_name},if=none,format=qcow2,id=se-virtio-drive"],
     ["-device", "virtio-blk,drive=se-virtio-drive,id=virtio-disk1"]
   ]
-  qemuargs = [
-    ["-m", "${var.memory}"],
-    ["-smp", "cpus=${var.cpus}"],
-    ["-drive", "file=${var.output_directory}/${var.qemu_image_name},if=virtio,cache=writeback,discard=ignore,format=qcow2"],
-    ["-cdrom", "${var.cloud_init_image}"],
-    ["-serial", "mon:stdio"],
-    ["-cpu", "${var.cpu_type}"]
-  ]
-final_qemuargs = "${var.se_boot}" == "1" ? concat(local.qemuargs, local.se_qemuargs) : local.qemuargs
+  qemuargs = "${var.os_arch}" == "x86_64" && "${var.is_uefi}" ? (
+    [
+      ["-m", "${var.memory}"],
+      ["-smp", "cpus=${var.cpus}"],
+      ["-cdrom", "${var.cloud_init_image}"],
+      ["-serial", "mon:stdio"]
+    ]
+    ) : (
+    [
+      ["-device", "virtio-blk,drive=virtio-drive,id=virtio-disk0,bootindex=1"],
+      ["-drive", "file=${var.output_directory}/${var.qemu_image_name},if=none,cache=writeback,discard=ignore,format=qcow2,id=virtio-drive"],
+      ["-device", "virtio-scsi"],
+      ["-drive", "file=${var.cloud_init_image},format=raw,if=none,id=c1"],
+      ["-device", "scsi-cd,drive=c1"],
+      ["-m", "${var.memory}"],
+      ["-smp", "cpus=${var.cpus}"],
+      ["-serial", "mon:stdio"]
+    ]
+  )
+  final_qemuargs = "${var.se_boot}" == "1" ? concat(local.qemuargs, local.se_qemuargs) : local.qemuargs
 }
 
 source "qemu" "rhel" {
@@ -113,7 +124,6 @@ build {
     environment_vars = [
       "SE_BOOT=${var.se_boot}",
       "ARCH=${var.os_arch}",
-      "DISTRO=${var.podvm_distro}",
     ]
     inline = [
       "sudo -E bash ~/build-s390x-se-image.sh"
