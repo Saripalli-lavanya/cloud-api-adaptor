@@ -102,3 +102,8 @@ variable "disable_cloud_config" {
   type    = string
   default = env("DISABLE_CLOUD_CONFIG")
 }
+
+variable "se_boot" {
+  type    = string
+  default = env("SE_BOOT")
+}
