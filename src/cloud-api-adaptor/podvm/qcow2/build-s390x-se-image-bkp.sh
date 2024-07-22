@@ -2,52 +2,52 @@
 
 export LANG=C.UTF-8
 
-echo "starting************"
-# Check if SE_BOOT variable is set to 1 and architecture is s390x
-if [ "${SE_BOOT:-0}" != "1" ]; then
-    echo "exit**************"
-    exit 0
-elif [ "${ARCH}" != "s390x" ]; then
-    echo "Building of SE podvm image is only supported for s390x"
-    exit 0
-fi
+# echo "starting************"
+# # Check if SE_BOOT variable is set to 1 and architecture is s390x
+# if [ "${SE_BOOT:-0}" != "1" ]; then
+#     echo "exit**************"
+#     exit 0
+# elif [ "${ARCH}" != "s390x" ]; then
+#     echo "Building of SE podvm image is only supported for s390x"
+#     exit 0
+# fi
 
-echo "Building SE podvm image for $ARCH"
+# echo "Building SE podvm image for $ARCH"
 
-# Find host key files
-echo "Finding host key files"
-host_keys=""
-rm /tmp/files/.dummy.crt || true
-for i in /tmp/files/*.crt; do
-    [[ -f "$i" ]] || break
-    echo "found host key file: \"${i}\""
-    host_keys+="-k ${i} "
-done
-[[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
+# # Find host key files
+# echo "Finding host key files"
+# host_keys=""
+# rm /tmp/files/.dummy.crt || true
+# for i in /tmp/files/*.crt; do
+#     [[ -f "$i" ]] || break
+#     echo "found host key file: \"${i}\""
+#     host_keys+="-k ${i} "
+# done
+# [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
 
-# Install necessary packages
-echo "Installing necessary packages"
-#sudo dnf install -y epel-release
-echo "df -h"
-df -h
-#echo "codeready builder"
-#sudo yum repolist
-#subscription-manager repos --enable rhel-9-for-s390x-appstream-rpms
-#sudo yum repolist
-echo "clean all"
-#sudo yum autoremove -y
-sudo yum clean all
-#sudo rm -rf /var/cache/yum
-#echo "eple"
-#sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-echo "jq1"
-#sudo dnf install -y jq
-#sudo dnf install -y https://rpmfind.net/linux/centos-stream/9-stream/AppStream/s390x/os/Packages/jq-1.6-16.el9.s390x.rpm
-jq --version
-#wget http://mirror.centos.org/centos/9-stream/BaseOS/s390x/os/Packages/oniguruma-6.9.6-1.el9.5.s390x.rpm
-#sudo rpm -ivh oniguruma-6.9.6-1.el9.5.s390x.rpm
+# # Install necessary packages
+# echo "Installing necessary packages"
+# #sudo dnf install -y epel-release
+# echo "df -h"
+# df -h
+# #echo "codeready builder"
+# #sudo yum repolist
+# #subscription-manager repos --enable rhel-9-for-s390x-appstream-rpms
+# #sudo yum repolist
+# echo "clean all"
+# #sudo yum autoremove -y
+# sudo yum clean all
+# #sudo rm -rf /var/cache/yum
+# #echo "eple"
+# #sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+# echo "jq1"
+# #sudo dnf install -y jq
+# #sudo dnf install -y https://rpmfind.net/linux/centos-stream/9-stream/AppStream/s390x/os/Packages/jq-1.6-16.el9.s390x.rpm
+# jq --version
+# #wget http://mirror.centos.org/centos/9-stream/BaseOS/s390x/os/Packages/oniguruma-6.9.6-1.el9.5.s390x.rpm
+# #sudo rpm -ivh oniguruma-6.9.6-1.el9.5.s390x.rpm
 
-# Set up disk and partitions
+# # Set up disk and partitions
 workdir=$(pwd)
 disksize=100G
 device=$(sudo lsblk --json | jq -r --arg disksize "$disksize" '.blockdevices[] | select(.size == $disksize and .children == null and .mountpoint == null) | .name')
@@ -75,7 +75,7 @@ done
 # Format boot-se partition
 echo "Formatting boot-se partition"
 sudo mke2fs -t ext4 -L boot-se ${tmp_nbd}1
-boot_uuid=$(sudo blkid ${tmp_nbd}1 -s PARTUUID -o value)
+boot_uuid=$(sudo blkid ${tmp_nbd}1 -s UUID -o value)
 export boot_uuid
 echo " *********uuid $boot_uuid"
 
@@ -84,7 +84,8 @@ echo "Setting up encrypted root partition"
 sudo mkdir ${workdir}/rootkeys
 sudo mount -t tmpfs rootkeys ${workdir}/rootkeys
 sudo dd if=/dev/random of=${workdir}/rootkeys/rootkey.bin bs=1 count=64 &> /dev/null
-echo YES | sudo cryptsetup luksFormat --type luks2 ${tmp_nbd}2 --key-file ${workdir}/rootkeys/rootkey.bin
+sudo cp key.bin ${workdir}/rootkeys/key.bin
+echo YES | sudo cryptsetup luksFormat --type luks2 /dev/vdb2 --key-file ${workdir}/rootkeys/key.bin
 echo "${workdir}/rootkeys/*****************"
 ls ${workdir}/rootkeys/
 
@@ -92,7 +93,7 @@ echo "Setting luks name for root partition"
 LUKS_NAME="luks-$(sudo blkid -s UUID -o value ${tmp_nbd}2)"
 export LUKS_NAME
 echo "luks name is: $LUKS_NAME"
-sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/rootkey.bin
+sudo cryptsetup open ${tmp_nbd}2 $LUKS_NAME --key-file ${workdir}/rootkeys/key.bin
 
 echo "Copying the root filesystem"
 sudo mkfs.ext4 -L "root" /dev/mapper/${LUKS_NAME}
@@ -115,15 +116,6 @@ ls ${src_mnt}
 tar_opts=(--numeric-owner --preserve-permissions --acl --selinux --xattrs --xattrs-include='*' --sparse  --one-file-system)
 sudo tar -cf - "${tar_opts[@]}" --sort=none -C ${src_mnt} . | sudo tar -xf - "${tar_opts[@]}" --preserve-order  -C "$dst_mnt"
 #tar -czf root.tar.gz "${tar_opts[@]}" --sort=none -C "$src_mnt" .
-ls
-echo "********************ls src and dst"
-ls -ltr ${src_mnt}
-echo "************** ls src boot"
-ls -ltr ${src_mnt}/boot
-echo "************** ls dst"
-ls -ltr $dst_mnt
-echo "************** ls dst boot"
-ls -ltr $dst_mnt/boot
 
 sudo umount ${src_mnt}
 echo "Partition copy complete"
@@ -154,8 +146,8 @@ ls ${dst_mnt}/etc/keys
 echo "Adding fstab"
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
 #This file was auto-generated
-/dev/mapper/$LUKS_NAME    /        ext4  defaults 1 1
-PARTUUID=$boot_uuid    /boot-se    ext4  norecovery 1 2
+UUID=9d060c9a-5c2a-48bb-8ebe-17e1c05310e6   /        ext4  defaults 1 1
+UUID=4c088ea5-9508-48e9-931d-fec395172052    /boot-se    ext4  norecovery 1 2
 END'
 echo $boot_uuid 
 cat ${dst_mnt}/etc/fstab
@@ -166,7 +158,7 @@ blkid
 echo "Adding luks keyfile for fs"
 dev_uuid=$(sudo blkid -s UUID -o value "/dev/mapper/$LUKS_NAME")
 echo "devuuid: $dev_uuid"
-sudo cp "${workdir}/key" "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
+sudo cp "${workdir}/key.bin" "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
 sudo chmod 600 "${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
 echo "dstmnt keys ************ ${dst_mnt}/etc/keys/luks-${dev_uuid}.key"
 ls ${dst_mnt}/etc/keys/
@@ -177,7 +169,7 @@ ls ${dst_mnt}/etc/keys/
 
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/crypttab
 #This file was auto-generated
-$LUKS_NAME UUID=$(sudo blkid -s UUID -o value ${tmp_nbd}2) /etc/keys/luks-$(blkid -s UUID -o value /dev/mapper/$LUKS_NAME).key luks,discard,initramfs
+luks-db193dbc-d753-47d0-a450-08b1e51828c3 UUID=db193dbc-d753-47d0-a450-08b1e51828c3  /etc/keys/luks-db193dbc-d753-47d0-a450-08b1e51828c3.key luks,discard,initramfs
 END'
 sudo chmod 744 "${dst_mnt}/etc/crypttab"
 echo "crypttab*************"
@@ -199,24 +191,10 @@ sudo -E bash -c 'echo s390_trng >> ${dst_mnt}/etc/modules'
 
 echo "Preparing files needed for mkinitrd"
 ls ${dst_mnt}/etc/
-# sudo -E bash -c 'echo install_items+=" /etc/crypttab " >> ${dst_mnt}/etc/dracut.conf.d/crypttab.conf'
-# sudo -E bash -c 'echo install_items+=" /etc/fstab " >> ${dst_mnt}/etc/dracut.conf.d/fstab1.conf'
-# sudo -E bash -c 'echo install_items+=" /etc/keys/*.key " >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
-# sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/fstab\"" >> ${dst_mnt}/etc/dracut.conf.d/fstab.conf'
-# sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/crypttab\"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
+# sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
 sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> ${dst_mnt}/etc/dracut.conf.d/cryptsetup.conf'
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/fstab\"" >> ${dst_mnt}/etc/dracut.conf.d/fstab.conf'
-sudo -E bash -c 'echo "install_items+=\" /etc/fstab \"" >> ${dst_mnt}/etc/dracut.conf.d/fstab.conf'
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/crypttab\"" >> ${dst_mnt}/etc/dracut.conf.d/crypttab.conf'
-sudo -E bash -c 'echo "install_items+=\" /etc/crypttab \"" >> ${dst_mnt}/etc/dracut.conf.d/crypttab.conf'
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/zipl.conf\"" >> ${dst_mnt}/etc/dracut.conf.d/zipl.conf'
-sudo -E bash -c 'echo "install_items+=\" /etc/zipl.conf \"" >> ${dst_mnt}/etc/dracut.conf.d/zipl.conf'
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/dev/disk/*\"" >> ${dst_mnt}/etc/dracut.conf.d/disk.conf'
-sudo -E bash -c 'echo "install_items+=\" /dev/disk/* \"" >> ${dst_mnt}/etc/dracut.conf.d/disk.conf'
+sudo dracut --include /etc/dracut.conf.d/*
 sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/initramfs.conf'
-sudo -E bash -c 'echo "add_drivers+=\" dm_crypt \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
-sudo -E bash -c 'echo "add_dracutmodules+=\" crypt lvm \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
 #sudo -E bash -c 'echo "add_dracutmodules+=\" crypt \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
 #sudo -E bash -c 'echo "add_dracutmodules+=\" crypt \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
 #sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
@@ -224,15 +202,13 @@ sudo -E bash -c 'echo "add_dracutmodules+=\" crypt lvm \"" >> ${dst_mnt}/etc/dra
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 [defaultboot]
 default=linux
-target=/boot-se
+target=/boot
 
-targetbase=/dev/vda
+targetbase=/dev/vdb
 targettype=scsi
 targetblocksize=512
 targetoffset=2048
-
-[linux]
-image = /boot-se/se.img
+]
 END'
 
 echo "************** normal /etc"
@@ -258,15 +234,15 @@ echo "Generating an IBM Secure Execution image"
 # Clean up kernel names and make sure they are where we expect them
 echo "ls bootdst after dracut"
 ls ${dst_mnt}/boot/
-cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/
+sudo cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/
 echo "ls bootdst after dracut and vmlinuz"
 ls ${dst_mnt}/boot/
 ls ${dst_mnt}/boot/
 KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
 INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 echo "Creating SE boot image"
-export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
-sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/paramfile'
+export SE_PARMLINE="console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
+sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
 echo "cat parmfile"
 cat ${dst_mnt}/boot/parmfile
 ls ${dst_mnt}/boot
@@ -288,13 +264,13 @@ ls ${dst_mnt}/sys
 sudo -E /usr/bin/genprotimg \
     -i ${KERNEL_FILE} \
     -r ${INITRD_FILE} \
-    -p ${dst_mnt}boot/parmfile \
+    -p ${dst_mnt}/boot/parmfile \
     --no-verify \
     -k ./HKD \
-    -o ${dst_mnt}/boot-se/se.img
+    -o ${dst_mnt}/boot/se.img
 echo "done"
 # Check if SE image was created
-[ ! -e ${dst_mnt}/boot-se/se.img ] && exit 1
+[ ! -e ${dst_mnt}/boot-se/se.img ] && exit 1 
 echo "not here"
 #cp root.tar.gz ${dst_mnt}/boot-se/
 # Clean /boot directory
@@ -302,12 +278,12 @@ sudo rm -rf ${dst_mnt}/boot/*
 echo "*************ls bootse"
 ls ${dst_mnt}/boot-se
 echo "Running zipl to prepare boot partition"
-sudo chroot ${dst_mnt} zipl --targetbase ${tmp_nbd} \
+sudo chroot ${dst_mnt} ./usr/sbin/zipl --targetbase ${tmp_nbd} \
     --targettype scsi \
     --targetblocksize 512 \
     --targetoffset 2048 \
-    --target /boot-se \
-    --image /boot-se/se.img
+    --target /boot \
+    --image /boot/se.img
 
 # Clean up
 echo "Cleaning up"
