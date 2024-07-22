@@ -16,13 +16,37 @@ for i in /tmp/files/*.crt; do
     host_keys+="-k ${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
-echo "Installing jq"
-export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update > /dev/null 2>&1
-sudo apt-get install jq -y > /dev/null 2>&1
-sudo apt-get remove unattended-upgrades -y
-sudo apt-get autoremove
-sudo apt-get clean
+if [ "${DISTRO}" = "rhel" ]; then
+    export LANG=C.UTF-8
+    if ! command -v jq &> /dev/null || ! command -v cryptsetup &> /dev/null; then
+        if ! command -v jq &> /dev/null; then
+            echo >&2 "jq is required but it's not installed. Installing now..."
+            sudo yum install jq -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install jq. Aborting."
+                exit 1
+            fi
+        fi
+
+        if ! command -v cryptsetup &> /dev/null; then
+            echo >&2 "cryptsetup is required but it's not installed. Installing now..."
+            sudo yum install cryptsetup -y >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+                echo >&2 "Failed to install cryptsetup. Aborting."
+                exit 1
+            fi
+        fi
+    fi
+    echo "jq and cryptsetup are installed. Proceeding with the script..."
+else
+    echo "Installing jq"
+    export DEBIAN_FRONTEND=noninteractive
+    sudo apt-get update > /dev/null 2>&1
+    sudo apt-get install jq -y > /dev/null 2>&1
+    sudo apt-get remove unattended-upgrades -y
+    sudo apt-get autoremove
+    sudo apt-get clean
+fi
 sudo rm -rf /var/lib/apt/lists/*
 
 workdir=$(pwd)
@@ -114,14 +138,26 @@ sudo -E bash -c 'echo s390_trng >> ${dst_mnt}/etc/modules'
 
 echo "Preparing files needed for mkinitrd"
 
-sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
-sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
-sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+if [ "${DISTRO}" = "rhel" ]; then
+sudo -E bash -c 'cat <<EOF >> "${dst_mnt}/etc/dracut.conf.d/crypt.conf"
+UMASK=0077
+add_drivers+=" dm_crypt "
+add_dracutmodules+=" crypt "
+install_items+=" /etc/keys/*.key "
+install_items+=" /etc/fstab "
+install_items+=" /etc/crypttab "
+EOF'
+
+else 
+    sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
+fi
+    sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 [defaultboot]
 default=linux
 target=/boot-se
 
-targetbase=/dev/vda
+targetbase=${tmp_nbd}
 targettype=scsi
 targetblocksize=512
 targetoffset=2048
@@ -131,16 +167,27 @@ image = /boot-se/se.img
 END'
 
 echo "Updating initial ram disk"
-sudo chroot "${dst_mnt}" update-initramfs -u || true
+if [ "${DISTRO}" = "rhel" ]; then
+    sudo cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/vmlinuz-$(uname -r)
+    sudo cp /boot/initramfs-$(uname -r).img ${dst_mnt}/boot/initramfs-$(uname -r).img
+    sudo chroot ${dst_mnt} dracut --force --include /etc/crypttab --include /etc/fstab --include /etc/dracut.conf.d/ -f -v
+    KERNEL_FILE=vmlinuz-$(uname -r)
+    INITRD_FILE=initramfs-$(uname -r).img
+else
+    sudo chroot "${dst_mnt}" update-initramfs -u || true
+    # Clean up kernel names and make sure they are where we expect them
+    KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
+    INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
+fi
 echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
 echo "Generating an IBM Secure Execution image"
-
-# Clean up kernel names and make sure they are where we expect them
-KERNEL_FILE=$(readlink ${dst_mnt}/boot/vmlinuz)
-INITRD_FILE=$(readlink ${dst_mnt}/boot/initrd.img)
 echo "Creating SE boot image"
-export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=0 blacklist=virtio_rng swiotlb=262144"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
+echo "ls ${dst_mnt}/"
+ls ${dst_mnt}/
+echo "ls ${dst_mnt}/boot/"
+ls ${dst_mnt}/boot/
 sudo -E /usr/bin/genprotimg \
     -i ${dst_mnt}/boot/${KERNEL_FILE} \
     -r ${dst_mnt}/boot/${INITRD_FILE} \
