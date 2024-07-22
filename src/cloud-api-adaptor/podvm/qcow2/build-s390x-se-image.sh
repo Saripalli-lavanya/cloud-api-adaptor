@@ -109,6 +109,7 @@ sudo mount --bind /dev ${dst_mnt}/dev
 
 sudo mkdir -p ${dst_mnt}/etc/keys
 sudo mount -t tmpfs keys ${dst_mnt}/etc/keys
+sudo chmod 744 ${dst_mnt}/etc/keys
 # ADD CONFIGURATION
 echo "Adding fstab"
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
@@ -170,7 +171,10 @@ echo "Updating initial ram disk"
 if [ "${DISTRO}" = "rhel" ]; then
     sudo cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/vmlinuz-$(uname -r)
     sudo cp /boot/initramfs-$(uname -r).img ${dst_mnt}/boot/initramfs-$(uname -r).img
-    sudo chroot ${dst_mnt} dracut --force --include /etc/crypttab --include /etc/fstab --include /etc/dracut.conf.d/ -f -v
+    sudo chroot ${dst_mnt} dracut --force --include /etc/crypttab /etc/crypttab
+    sudo chroot ${dst_mnt} dracut --force --include /etc/fstab /etc/fstab
+    sudo chroot ${dst_mnt} dracut --force --include /etc/dracut.conf.d/ /etc/dracut.conf.d/ 
+    sudo chroot ${dst_mnt} dracut -f -v
     KERNEL_FILE=vmlinuz-$(uname -r)
     INITRD_FILE=initramfs-$(uname -r).img
 else
