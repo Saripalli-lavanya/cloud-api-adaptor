@@ -4,7 +4,7 @@ locals {
   use_pflash   = "${var.os_arch}" == "x86_64" && "${var.is_uefi}" ? "true" : "false"
   firmware     = "${var.os_arch}" == "x86_64" && "${var.is_uefi}" ? "${var.uefi_firmware}" : ""
   se_qemuargs = [
-    ["-drive", "file=se-${var.qemu_image_name},if=none,format=qcow2,id=se-virtio-drive"],
+    ["-drive", "file=se-${var.qemu_image_name},if=none,cache=writeback,discard=ignore,format=qcow2,id=se-virtio-drive"],
     ["-device", "virtio-blk,drive=se-virtio-drive,id=virtio-disk1"]
   ]
   qemuargs = "${var.os_arch}" == "x86_64" && "${var.is_uefi}" ? (
