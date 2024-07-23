@@ -16,7 +16,8 @@ for i in /tmp/files/*.crt; do
     host_keys+="-k ${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
-if [ "${DISTRO}" = "rhel" ]; then
+echo "testing distro"
+if [ "${PODVM_DISTRO}" = "rhel" ]; then
     export LANG=C.UTF-8
     if ! command -v jq &> /dev/null || ! command -v cryptsetup &> /dev/null; then
         if ! command -v jq &> /dev/null; then
@@ -37,6 +38,7 @@ if [ "${DISTRO}" = "rhel" ]; then
             fi
         fi
     fi
+    sudo yum clean all
     echo "jq and cryptsetup are installed. Proceeding with the script..."
 else
     echo "Installing jq"
@@ -46,8 +48,8 @@ else
     sudo apt-get remove unattended-upgrades -y
     sudo apt-get autoremove
     sudo apt-get clean
+    sudo rm -rf /var/lib/apt/lists/*
 fi
-sudo rm -rf /var/lib/apt/lists/*
 
 workdir=$(pwd)
 disksize=100G
@@ -61,8 +63,7 @@ echo "Creating boot-se and root partitions"
 
 sudo parted -a optimal ${tmp_nbd} mklabel gpt \
     mkpart boot-se ext4 1MiB 256MiB \
-    mkpart root 256MiB 6400MiB \
-    mkpart data 6400MiB ${disksize} \
+    mkpart root 256MiB ${disksize} \
     set 1 boot on
 
 echo "Waiting for the two partitions to show up"
@@ -108,8 +109,8 @@ sudo mount -t proc proc ${dst_mnt}/proc
 sudo mount --bind /dev ${dst_mnt}/dev
 
 sudo mkdir -p ${dst_mnt}/etc/keys
+sudo chmod 744 ${dst_mnt}/etc/keys/
 sudo mount -t tmpfs keys ${dst_mnt}/etc/keys
-sudo chmod 744 ${dst_mnt}/etc/keys
 # ADD CONFIGURATION
 echo "Adding fstab"
 sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/fstab
@@ -139,21 +140,20 @@ sudo -E bash -c 'echo s390_trng >> ${dst_mnt}/etc/modules'
 
 echo "Preparing files needed for mkinitrd"
 
-if [ "${DISTRO}" = "rhel" ]; then
-sudo -E bash -c 'cat <<EOF >> "${dst_mnt}/etc/dracut.conf.d/crypt.conf"
-UMASK=0077
-add_drivers+=" dm_crypt "
-add_dracutmodules+=" crypt "
-install_items+=" /etc/keys/*.key "
-install_items+=" /etc/fstab "
-install_items+=" /etc/crypttab "
-EOF'
-
+if [ "${PODVM_DISTRO}" = "rhel" ]; then
+    sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
+    sudo -E bash -c 'echo "add_drivers+=\" dm_crypt \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
+    sudo -E bash -c 'echo "add_dracutmodules+=\" crypt \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
+    sudo -E bash -c 'echo "KEYFILE_PATTERN=\" /etc/keys/*.key \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
+    sudo -E bash -c 'echo "install_items+=\" /etc/keys/*.key \"" >> ${dst_mnt}/etc/dracut.conf.d/crypt.conf'
+    echo 'install_items+=" /etc/fstab "' >>  ${dst_mnt}/etc/dracut.conf.d/crypt.conf
+    echo 'install_items+=" /etc/crypttab "' >>  ${dst_mnt}/etc/dracut.conf.d/crypt.conf
 else 
     sudo -E bash -c 'echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >> ${dst_mnt}/etc/cryptsetup-initramfs/conf-hook'
     sudo -E bash -c 'echo "UMASK=0077" >> ${dst_mnt}/etc/initramfs-tools/initramfs.conf'
 fi
-    sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
+
+sudo -E bash -c 'cat <<END > ${dst_mnt}/etc/zipl.conf
 [defaultboot]
 default=linux
 target=/boot-se
@@ -168,15 +168,15 @@ image = /boot-se/se.img
 END'
 
 echo "Updating initial ram disk"
-if [ "${DISTRO}" = "rhel" ]; then
+if [ "${PODVM_DISTRO}" = "rhel" ]; then
     sudo cp /boot/vmlinuz-$(uname -r) ${dst_mnt}/boot/vmlinuz-$(uname -r)
     sudo cp /boot/initramfs-$(uname -r).img ${dst_mnt}/boot/initramfs-$(uname -r).img
     sudo chroot ${dst_mnt} dracut --force --include /etc/crypttab /etc/crypttab
     sudo chroot ${dst_mnt} dracut --force --include /etc/fstab /etc/fstab
-    sudo chroot ${dst_mnt} dracut --force --include /etc/dracut.conf.d/ /etc/dracut.conf.d/ 
+    sudo chroot ${dst_mnt} dracut --include /etc/dracut.conf.d/
     sudo chroot ${dst_mnt} dracut -f -v
-    KERNEL_FILE=vmlinuz-$(uname -r)
-    INITRD_FILE=initramfs-$(uname -r).img
+    KERNEL_FILE=${dst_mnt}/boot/vmlinuz-$(uname -r)
+    INITRD_FILE=${dst_mnt}/boot/initramfs-$(uname -r).img
 else
     sudo chroot "${dst_mnt}" update-initramfs -u || true
     # Clean up kernel names and make sure they are where we expect them
@@ -186,15 +186,12 @@ fi
 echo "!!! Bootloader install errors prior to this line are intentional !!!!!" 1>&2
 echo "Generating an IBM Secure Execution image"
 echo "Creating SE boot image"
-export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME rd.auto=1 rd.retry=30 console=ttysclp0 quiet panic=0 rd.shell=1 rd.debug=1 blacklist=virtio_rng swiotlb=262144"
+export SE_PARMLINE="root=/dev/mapper/$LUKS_NAME rd.auto=1 rd.retry=30 console=ttysclp0 quiet panic=0 rd.shell=1 blacklist=virtio_rng swiotlb=262144"
 sudo -E bash -c 'echo "${SE_PARMLINE}" > ${dst_mnt}/boot/parmfile'
-echo "ls ${dst_mnt}/"
-ls ${dst_mnt}/
-echo "ls ${dst_mnt}/boot/"
-ls ${dst_mnt}/boot/
+
 sudo -E /usr/bin/genprotimg \
-    -i ${dst_mnt}/boot/${KERNEL_FILE} \
-    -r ${dst_mnt}/boot/${INITRD_FILE} \
+    -i ${KERNEL_FILE} \
+    -r ${INITRD_FILE} \
     -p ${dst_mnt}/boot/parmfile \
     --no-verify \
     ${host_keys} \
@@ -226,3 +223,4 @@ sudo rm -rf ${src_mnt} ${dst_mnt}
 echo "Closing encrypted root partition"
 sudo cryptsetup close $LUKS_NAME
 sleep 10
+echo "RHEL-based SE podvm qcow2 image build completed successfully"
