@@ -37,7 +37,7 @@ source "qemu" "rhel" {
   headless         = true
   iso_checksum     = "${var.cloud_image_checksum}"
   iso_url          = "${var.cloud_image_url}"
-  output_directory = "output"
+  output_directory = "${var.output_directory}"
   qemuargs         = "${local.final_qemuargs}"
   ssh_password     = "${var.ssh_password}"
   ssh_port         = 22
