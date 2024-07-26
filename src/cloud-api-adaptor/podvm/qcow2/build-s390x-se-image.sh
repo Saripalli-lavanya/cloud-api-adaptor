@@ -19,6 +19,9 @@ done
 
 if [ "${PODVM_DISTRO}" = "rhel" ]; then
     export LANG=C.UTF-8
+    cp /tmp/files/cryptsetup /usr/bin/cryptsetup
+    ls -l /usr/bin/cryptsetup
+    chmod +x /usr/bin/cryptsetup
     if ! command -v jq &> /dev/null || ! command -v cryptsetup &> /dev/null; then
         if ! command -v jq &> /dev/null; then
             echo >&2 "jq is required but it's not installed. Installing now..."
