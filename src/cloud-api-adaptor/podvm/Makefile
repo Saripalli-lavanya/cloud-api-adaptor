@@ -96,7 +96,6 @@ $(IMAGE_FILE): $(BINARIES) $(FILES) setopts
 	packer build ${PACKER_DEFAULT_OPTS} ${OPTS} qcow2/${PODVM_DISTRO}
 	rm -fr toupload
 	rm -f cloud-init.img
-
 clean:
 	rm -f "$(IMAGE_FILE)" "$(UBUNTU_IMAGE_FILE)" $(BINARIES)
 	rm -fr "$(SKOPEO_SRC)" "$(UMOCI_SRC)" "$(PAUSE_SRC)" "$(FILES_DIR)/$(PAUSE_BUNDLE)"
