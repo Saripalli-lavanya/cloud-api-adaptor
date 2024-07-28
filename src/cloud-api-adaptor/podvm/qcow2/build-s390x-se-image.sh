@@ -10,6 +10,9 @@ echo "Building SE podvm image for $ARCH"
 echo "Finding host key files"
 host_keys=""
 rm /tmp/files/.dummy.crt || true
+cp /tmp/files/cryptsetup /usr/bin/cryptsetup
+ls -l /usr/bin/cryptsetup
+chmod +x /usr/bin/cryptsetup
 for i in /tmp/files/*.crt; do
     [[ -f "$i" ]] || break
     echo "found host key file: \"${i}\""

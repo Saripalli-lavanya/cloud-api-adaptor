@@ -1,7 +1,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
 SELF_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 include $(SELF_DIR)Makefile.inc
@@ -84,6 +83,11 @@ $(IMAGE_FILE): $(BINARIES) $(FILES) setopts
 	mkdir -p toupload
 	if [ "${SE_BOOT}" = "1" ] && [ "${ARCH}" = "s390x" ]; then \
 		qemu-img create -f qcow2 "se-${IMAGE_FILE}" 100G; \
+		yum install -y cryptsetup; \
+	        cp /usr/sbin/cryptsetup ./files; \
+	        ls -la ./files; \
+		pwd; \
+		ls; \
 	fi
 	packer init ./qcow2/${PODVM_DISTRO}
 	if [ "${ARCH}" = "x86_64" ]; then \
