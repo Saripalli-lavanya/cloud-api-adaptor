@@ -22,8 +22,6 @@ ls /
 echo "ls /etc"
 ls /etc
 
-echo "cat /etc/agent.toml"
-cat /etc/agent.toml
 
 if [ "${PODVM_DISTRO}" = "rhel" ]; then
     export LANG=C.UTF-8
@@ -120,11 +118,8 @@ ls /${dst_mnt}
 echo "ls ${dst_mnt}/etc"
 ls ${dst_mnt}/etc
 
-echo "cat ${dst_mnt}/agent.toml"
-cat ${dst_mnt}/agent.toml
-
 echo "cat ${dst_mnt}/etc/agent.toml"
-cat ${dst_mnt}/etc/agent.toml
+cat ${dst_mnt}/etc/agent-config.toml
 
 echo "Preparing secure execution boot image"
 sudo rm -rf ${dst_mnt}/home/peerpod/*
