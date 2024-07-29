@@ -84,6 +84,10 @@ $(IMAGE_FILE): $(BINARIES) $(FILES) setopts
 	mkdir -p toupload
 	if [ "${SE_BOOT}" = "1" ] && [ "${ARCH}" = "s390x" ]; then \
 		qemu-img create -f qcow2 "se-${IMAGE_FILE}" 100G; \
+		if [ "${PODVM_DISTRO}" = "rhel" ]; then \
+			yum install -y cryptsetup; \
+			cp /usr/sbin/cryptsetup ./files/usr/local/bin/; \
+		fi \
 	fi
 	packer init ./qcow2/${PODVM_DISTRO}
 	if [ "${ARCH}" = "x86_64" ]; then \
