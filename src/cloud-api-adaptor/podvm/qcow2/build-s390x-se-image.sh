@@ -16,6 +16,14 @@ for i in /tmp/files/*.crt; do
     host_keys+="-k ${i} "
 done
 [[ -z $host_keys ]] && echo "Didn't find host key files, please download host key files to 'files' folder " && exit 1
+echo "ls /"
+ls /
+
+echo "ls /etc"
+ls /etc
+
+echo "cat /etc/agent.toml"
+cat /etc/agent.toml
 
 if [ "${PODVM_DISTRO}" = "rhel" ]; then
     export LANG=C.UTF-8
@@ -105,6 +113,18 @@ tar_opts=(--numeric-owner --preserve-permissions --acl --selinux --xattrs --xatt
 sudo tar -cf - "${tar_opts[@]}" --sort=none -C ${src_mnt} . | sudo tar -xf - "${tar_opts[@]}" --preserve-order  -C "$dst_mnt"
 sudo umount ${src_mnt}
 echo "Partition copy complete"
+
+echo "ls /${dst_mnt}"
+ls /${dst_mnt}
+
+echo "ls ${dst_mnt}/etc"
+ls ${dst_mnt}/etc
+
+echo "cat ${dst_mnt}/agent.toml"
+cat ${dst_mnt}/agent.toml
+
+echo "cat ${dst_mnt}/etc/agent.toml"
+cat ${dst_mnt}/etc/agent.toml
 
 echo "Preparing secure execution boot image"
 sudo rm -rf ${dst_mnt}/home/peerpod/*
