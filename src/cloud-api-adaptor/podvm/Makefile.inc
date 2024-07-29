@@ -69,7 +69,7 @@ AGENT_PROTOCOL_FORWARDER = $(FILES_DIR)/usr/local/bin/agent-protocol-forwarder
 KATA_AGENT    = $(FILES_DIR)/usr/local/bin/kata-agent
 
 # The pause binary can be named differently.
-PAUSE_BIN ?= pause
+PAUSE_BIN ?= usr/bin/pod
 PAUSE      = $(FILES_DIR)/$(PAUSE_BUNDLE)/rootfs/$(PAUSE_BIN)
 
 ATTESTATION_AGENT = $(FILES_DIR)/usr/local/bin/attestation-agent
@@ -160,7 +160,7 @@ $(UMOCI_SRC)/umoci: $(UMOCI_SRC)
 
 $(PAUSE_SRC): $(SKOPEO_BIN)
 	$(SKOPEO_BIN) --override-arch $(DEB_ARCH) --policy "$(FILES_DIR)/etc/containers/policy.json" copy \
-		$(if $(AUTHFILE),--authfile $(AUTHFILE)) "$(PAUSE_REPO):$(PAUSE_VERSION)" "oci:$(PAUSE_SRC):$(PAUSE_VERSION)"
+		$(if $(AUTHFILE),--authfile $(AUTHFILE)) "docker://quay.io/savitrilh/openshift-release-dev/ocp-v4.0-art-dev:fa7be53128" "oci:$(PAUSE_SRC):$(PAUSE_VERSION)"
 
 $(PAUSE): | $(PAUSE_SRC) $(UMOCI_SRC)/umoci
 	$(UMOCI_SRC)/umoci unpack --rootless --image "$(PAUSE_SRC):$(PAUSE_VERSION)" "${FILES_DIR}/$(PAUSE_BUNDLE)"
