@@ -93,7 +93,7 @@ UMOCI_SRC   = umoci
 
 # Embed the pause container image
 # https://github.com/arronwy/kata-containers/commit/75b9f3fa3caaae62f49b4733f65cbab0cc87dbee
-PAUSE_SRC     = pause
+PAUSE_BIN ?= usr/bin/pod
 # Allows to override
 PAUSE_BUNDLE  ?= pause_bundle
 
@@ -160,7 +160,7 @@ $(UMOCI_SRC)/umoci: $(UMOCI_SRC)
 
 $(PAUSE_SRC): $(SKOPEO_BIN)
 	$(SKOPEO_BIN) --override-arch $(DEB_ARCH) --policy "$(FILES_DIR)/etc/containers/policy.json" copy \
-		$(if $(AUTHFILE),--authfile $(AUTHFILE)) "$(PAUSE_REPO):$(PAUSE_VERSION)" "oci:$(PAUSE_SRC):$(PAUSE_VERSION)"
+		$(if $(AUTHFILE),--authfile $(AUTHFILE)) "docker://quay.io/savitrilh/openshift-release-dev/ocp-v4.0-art-dev:fa7be53128" "oci:$(PAUSE_SRC):$(PAUSE_VERSION)"
 
 $(PAUSE): | $(PAUSE_SRC) $(UMOCI_SRC)/umoci
 	$(UMOCI_SRC)/umoci unpack --rootless --image "$(PAUSE_SRC):$(PAUSE_VERSION)" "${FILES_DIR}/$(PAUSE_BUNDLE)"
